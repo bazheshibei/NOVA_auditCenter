@@ -64,7 +64,7 @@
                 <div v-if="scope.row.rowType === 1">
                   <!-- 计划完成：异常 -->
                   <div v-if="scope.row[item.item_node_id].error">
-                    <el-popover popper-class="comPopover" :visible-arrow="false" placement="top" trigger="hover" :content="scope.row[item.item_node_id].plan_enddate">
+                    <el-popover popper-class="comPopover" :visible-arrow="false" placement="top" trigger="hover" :content="'提报日期：' + scope.row[item.item_node_id].plan_enddate">
                       <span slot="reference">
                         <span class="red">{{scope.row[item.item_node_id].time}}</span>
                         <i class="el-icon-warning warningIcon"></i>
@@ -73,7 +73,7 @@
                   </div>
                   <!-- 计划完成：正常 -->
                   <div v-if="!scope.row[item.item_node_id].error">
-                    <el-popover popper-class="comPopover" :visible-arrow="false" placement="top" trigger="hover" :content="scope.row[item.item_node_id].plan_enddate">
+                    <el-popover popper-class="comPopover" :visible-arrow="false" placement="top" trigger="hover" :content="'提报日期：' + scope.row[item.item_node_id].plan_enddate">
                       <span slot="reference">
                         <span :style="scope.row[item.item_node_id].timeType === 2 ? 'color: #E6A23C' : ''">{{scope.row[item.item_node_id].time}}</span>
                       </span>
@@ -212,21 +212,22 @@ export default {
      */
     edit(row, nodeId, title, index) {
       // console.log(row, index)
-      const { node_name, plan_enddate, change_remaark, is_change, change_plan_time, abnormal_reason, max_plant_enddate, min_plant_enddate } = row[nodeId]
+      const { node_name, plan_enddate, change_remaark, is_change, is_quote, change_plan_time, abnormal_reason, max_plant_enddate, min_plant_enddate } = row[nodeId]
       /* 赋值 */
       const d_data = {
-        index, //               行索引
-        title, //               弹出层标题
-        nodeId, //              节点ID
-        node_name, //           当前异常节点
-        plan_enddate, //        系统计算日期
-        abnormal_reason, //     异常原因
-        is_change, //           是否调整日期
-        is_computed: false, //  是否根据当前节点的时间去计算其他节点
-        change_plan_time, //    调整后日期
-        change_remaark, //      调整/异常原因
-        max_plant_enddate, //   日期最大值
-        min_plant_enddate //    日期最小值
+        index, //              行索引
+        title, //              弹出层标题
+        nodeId, //             节点ID
+        node_name, //          当前异常节点
+        plan_enddate, //       系统计算日期
+        abnormal_reason, //    异常原因
+        is_change, //          是否调整日期
+        is_computed: false, // 是否根据当前节点的时间去计算其他节点
+        is_quote, //           是否被其他节点引用
+        change_plan_time, //   调整后日期
+        change_remaark, //     调整/异常原因
+        max_plant_enddate, //  日期最大值
+        min_plant_enddate //   日期最小值
       }
       this.d_data = d_data
       this.dialogVisible = true
@@ -236,11 +237,11 @@ export default {
      */
     submit(title) {
       const { d_data, page_list, listIndex, listType } = this
-      const { index, nodeId, change_remaark, isUsed, is_change, is_computed, change_plan_time, plan_enddate } = d_data
+      const { index, nodeId, change_remaark, is_quote, is_change, is_computed, change_plan_time, plan_enddate } = d_data
       if (!change_remaark) {
         /* 报错：没写'调整/异常原因 后再保存' */
         this.$message({ message: '请填写调整/异常原因', type: 'warning' })
-      } else if (is_change === 1 && isUsed && (!change_plan_time || change_plan_time === '/' || isNaN(new Date(change_plan_time).getTime()))) {
+      } else if (is_change === 1 && is_quote === 1 && (!change_plan_time || change_plan_time === '/' || isNaN(new Date(change_plan_time).getTime()))) {
         /* 报错：变更，被引用，没选调整后日期 */
         this.$message({ message: '此节点被其他节点引用，请填写正确的 调整后日期 后再保存', type: 'warning' })
       } else if (plan_enddate === change_plan_time) {

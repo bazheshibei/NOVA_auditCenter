@@ -12,7 +12,7 @@ const host = '/api/'
  * [接口地址]
  */
 const url = {
-  '审核列表': 'itemGanttAuditShowAction.ndo?action=getItemGanttData',
+  '甘特表提报审核页面': 'itemGanttAuditShowAction.ndo?action=getItemGanttData',
   '提交': 'itemGanttAuditSaveAction.ndo?action=auditItemSummary'
 }
 

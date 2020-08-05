@@ -83,7 +83,7 @@ const store = new Vuex.Store({
      * [请求：审核列表]
      */
     A_getItemGanttData({ state }) {
-      const res = JSON.parse(localStorage.getItem('审核列表'))
+      const res = JSON.parse(localStorage.getItem('审核中心：审核列表'))
       // console.log(res)
       /* ----- 处理数据 ----- */
       const { itemSummaryItemData, itemGanttSummaryDatd, employeename, item_name, item_id } = res
@@ -98,10 +98,10 @@ const store = new Vuex.Store({
       state.page_list = arr
       state.nodeObj = nodeObj
 
-      // const name = '审核列表'
+      // const name = '甘特表提报审核页面'
       // const obj = { gantt_audit_id: '8a8a8062735528fc0173557f8bb000a2' }
       // const suc = function (res) {
-      //   localStorage.setItem('审核列表', JSON.stringify(res))
+      //   localStorage.setItem('审核中心：审核列表', JSON.stringify(res))
       //   console.log('审核列表 ----- ', res)
       // }
       // Api({ name, obj, suc })
