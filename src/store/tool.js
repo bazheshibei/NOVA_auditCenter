@@ -123,9 +123,11 @@ Tool.returnDatalist = function (itemGanttSummaryDatd) {
  * @param {[String]}  is_computed_id 重新计算时，作为基础值的节点（此节点自身不变，重新计算最大最小值）
  * @param {[Int]}     computed_index 重新计算的行索引
  * @param {[String]}  computed_tab   重新计算的tab
+ * @param {[String]}  order_time     下单时间
+ * @param {[String]}  deliver_date   客人交期
  * @param {[Object]}  state
  */
-Tool.forEachTime = function (page_list, is_computed, is_computed_id, computed_index, computed_tab, state) {
+Tool.forEachTime = function (page_list, is_computed, is_computed_id, computed_index, computed_tab, order_time, deliver_date, state) {
   const that = this
   if (is_computed) {
     console.log('page_list ----- ', page_list)
@@ -170,7 +172,7 @@ Tool.forEachTime = function (page_list, is_computed, is_computed_id, computed_in
                   node.maxMinText = `最早：${min}，最晚：${max}`
                 }
                 /** 验证：计划时间是否在区间内 **/
-                const errorStatus = that._isError(max, min, node.time)
+                const errorStatus = that._isError(max, min, node.time, order_time, deliver_date)
                 node.error = errorStatus
                 if (errorStatus) {
                   errorNum++
@@ -197,7 +199,7 @@ Tool.forEachTime = function (page_list, is_computed, is_computed_id, computed_in
               const node = item[x]
               const { max_plant_enddate, min_plant_enddate, time } = node
               /** 验证：计划时间是否在区间内 **/
-              const errorStatus = that._isError(max_plant_enddate, min_plant_enddate, time)
+              const errorStatus = that._isError(max_plant_enddate, min_plant_enddate, time, order_time, deliver_date)
               node.error = errorStatus
               if (errorStatus) {
                 errorNum++
@@ -279,9 +281,9 @@ Tool._returnData_3 = function (tab = {}) {
           obj.nodeData.push(nodeData)
           /* 报错 */
           if (type === 2 && !remark) {
-            error = '大货工厂甘特表：驳回状态下，驳回意见必填'
+            error = '<p>大货工厂甘特表：驳回状态下，驳回意见必填</p>'
           } else if (type === '' || (type === 1 && people === '')) {
-            error = '大货工厂甘特表：请完善审核信息后再提交'
+            error = '<p>大货工厂甘特表：请完善审核信息后再提交</p>'
           }
         }
       }
@@ -318,9 +320,9 @@ Tool._returnData_1 = function (tab = {}) {
           obj[item_gantt_detail_id].nodeData.push(nodeData)
           /* 报错 */
           if (type === 2 && !remark) {
-            error = '大货甘特表汇总：驳回状态下，驳回意见必填'
+            error = '<p>大货甘特表汇总：驳回状态下，驳回意见必填</p>'
           } else if (type === '' || (type === 1 && people === '')) {
-            error = '大货甘特表汇总：请完善审核信息后再提交'
+            error = '<p>大货甘特表汇总：请完善审核信息后再提交</p>'
           }
         }
       }
@@ -340,7 +342,6 @@ Tool._returnData_1 = function (tab = {}) {
  * @param {[Object]} 接口原始数据
  */
 Tool._getData = function (tabData) {
-  const that = this
   /* ----- 返回：其他可能用到的节点对象 { ${变量}: 自身时间 } ----- */
   const { clacNodeMap = {} } = tabData
   /* ----- 返回：表格类型 ----- */
@@ -351,9 +352,6 @@ Tool._getData = function (tabData) {
   const nodeObj_2 = {} // 返回：其他节点
   const { itemAuditNode = [] } = tabData
   itemAuditNode.forEach(function (item) {
-    /** 验证：是否被引用 **/
-    const { node_code } = item
-    item.isUsed = that._isUsed(itemAuditNode, node_code).status
     /* 添加属性：本次调整 */
     item.time = item.change_plan_time ? item.change_plan_time : item.plan_enddate // 展示的时间 （变更时间 || 原始时间，后期会变为审批调整时间）
     item.timeType = 1 //                  未审批调整
@@ -444,7 +442,7 @@ Tool._getData = function (tabData) {
  * @param {[String]} str         公式
  * @param {[Object]} nodeCodeObj 当前项目的节点值 { ${变量}: 自身时间 }
  */
-Tool._returnTime = function (str, nodeCodeObj) {
+Tool._returnTime = function (str = '', nodeCodeObj = {}) {
   /* 替换：变量、常量 */
   const numStr = str.replace(/[0-9]+/g, function (num) {
     return parseInt(num) * 60 * 60 * 24 * 1000
@@ -453,51 +451,52 @@ Tool._returnTime = function (str, nodeCodeObj) {
   })
   /* 毫秒数 转 时间 */
   // eslint-disable-next-line
-  const d = new Date(eval(numStr))
+  const timeStr = eval(numStr)
+  if (isNaN(timeStr)) {
+    return '/'
+  } else if (new Date(timeStr).getTime() < new Date('2000-01-01').getTime()) {
+    return '/'
+  } else {
+    const d = new Date(timeStr)
+    const year = d.getFullYear()
+    const month = d.getMonth() + 1 < 10 ? '0' + (d.getMonth() + 1) : d.getMonth() + 1
+    const day = d.getDate() < 10 ? '0' + d.getDate() : d.getDate()
+    return `${year}-${month}-${day}`
+  }
+}
+/**
+ * [验证：计划事件是否在区间内]
+ * @param {[String]} maxVal       最大值
+ * @param {[String]} minVal       最小值
+ * @param {[String]} plantVal     计划时间
+ * @param {[String]} order_time   下单日期
+ * @param {[String]} deliver_date 交货日期
+ */
+Tool._isError = function (maxVal = '', minVal = '', plantVal = '', order_time = '', deliver_date = '') {
+  const max = isNaN(new Date(maxVal).getTime()) ? 0 : new Date(maxVal).getTime() //       最大值
+  const min = isNaN(new Date(minVal).getTime()) ? 0 : new Date(minVal).getTime() //       最小值
+  const plant = isNaN(new Date(plantVal).getTime()) ? 0 : new Date(plantVal).getTime() // 计划时间
+  const order = new Date(order_time).getTime() //                                         下单日期
+  const deliver = new Date(deliver_date).getTime() //                                     交货日期
+  const num_1 = min || order //   边界值：最小
+  const num_2 = max || deliver // 边界值：最大
+  const time_1 = this._returnYearMonthDay(num_1)
+  const time_2 = this._returnYearMonthDay(num_2)
+  if (num_1 && num_2 && (num_1 <= plant && plant <= num_2)) {
+    return { status: false, maxMinText: `最早：${time_1}，最晚：${time_2}` }
+  } else {
+    return { status: true, maxMinText: `最早：${time_1}，最晚：${time_2}` }
+  }
+}
+/**
+ * [提取：年月日]
+ */
+Tool._returnYearMonthDay = function (strOrNum) {
+  const d = new Date(strOrNum)
   const year = d.getFullYear()
   const month = d.getMonth() + 1 < 10 ? '0' + (d.getMonth() + 1) : d.getMonth() + 1
   const day = d.getDate() < 10 ? '0' + d.getDate() : d.getDate()
   return `${year}-${month}-${day}`
-}
-/**
- * [验证：计划事件是否在区间内]
- * @param {[String]} maxVal   最大值
- * @param {[String]} minVal   最小值
- * @param {[String]} plantVal 计划事件
- */
-Tool._isError = function (maxVal = '', minVal = '', plantVal = '') {
-  const max = new Date(maxVal).getTime()
-  const min = new Date(minVal).getTime()
-  const plant = new Date(plantVal).getTime()
-  if (min <= plant && plant <= max) {
-    return false
-  } else {
-    return true
-  }
-}
-/**
- * [验证：是否用到此节点]
- * @param  {[Array]}  nodeList_0 单条原始节点数据
- * @param  {[String]} node_code  节点 code
- * @return {[Object]} { 是否被引用, 此节点的原始时间, 引用此节点的节点 }
- */
-Tool._isUsed = function (nodeList_0 = [], node_code) {
-  let status = false
-  let time = ''
-  const nameArr = []
-  nodeList_0.forEach(function (item) {
-    /* 是否引用 */
-    const { max_section_value, min_section_value, sys_clac_formula } = item // 计算公式：最大值，最小值，自身
-    if (item.node_code !== node_code && (max_section_value.indexOf(node_code) > -1 || min_section_value.indexOf(node_code) > -1 || sys_clac_formula.indexOf(node_code) > -1)) {
-      status = true
-      nameArr.push(item.node_name)
-    }
-    /* 原始时间 */
-    if (item.node_code === node_code) {
-      time = item.first_plant_enddate
-    }
-  })
-  return { status, time, name: nameArr.join('、') }
 }
 
 export default Tool

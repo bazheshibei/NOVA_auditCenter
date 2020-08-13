@@ -29,7 +29,7 @@
             </p>
             <p class="tableP" v-if="shenheObj[scope.$index].type === 1">
               下一步审核人：
-              <el-select class="tableSelect" size="mini" v-model="shenheObj[scope.$index].people" :multiple="false" @change="changeEvent('people', $event, scope.$index)">
+              <el-select class="tableSelect" size="mini" v-model="shenheObj[scope.$index].people" :multiple="true" @change="changeEvent('people', $event, scope.$index)">
                 <el-option class="comSelectOptions" v-for="item in scope.row.nextAuditData.auditEmployeeMap" :key="item.employeeid" :label="item.employeename" :value="item.employeeid"></el-option>
               </el-select>
             </p>
@@ -287,48 +287,59 @@ export default {
       const day = d.getDate() < 10 ? '0' + d.getDate() : d.getDate()
       return `${year}-${month}-${day}`
     },
+    /**
+     * [转换：年年年年-月月-日日]
+     * @param {[String]} time 输入的日期格式字符串
+     */
     _toggleTime(time) {
-      if (time) {
-        const arr = time.split(/[-//.]/g)
-        let year = new Date().getFullYear()
-        let month = ''
-        let day = ''
-        if (arr.length === 3) {
-          const [one, two, three] = arr
-          if (!isNaN(parseInt(one))) {
-            year = '2000'.slice(0, -1 * String(one).length) + one
-          }
-          if (!isNaN(parseInt(two))) {
-            month = parseInt(two) < 10 ? '0' + parseInt(two) : parseInt(two)
-          }
-          if (!isNaN(parseInt(three))) {
-            day = parseInt(three) < 10 ? '0' + parseInt(three) : parseInt(three)
-          }
-          if (parseInt(month) && parseInt(month) <= 12 && parseInt(day) && parseInt(day) <= 31) {
-            return `${year}-${month}-${day}`
-          } else {
-            return time
-          }
-        } else if (arr.length === 2) {
-          const [two, three] = arr
-          if (!isNaN(parseInt(two))) {
-            month = parseInt(two) < 10 ? '0' + parseInt(two) : parseInt(two)
-          }
-          if (!isNaN(parseInt(three))) {
-            day = parseInt(three)
-          }
-          if (parseInt(month) && parseInt(month) <= 12 && parseInt(day) && parseInt(day) < 10) {
-            return `${year}-${month}-0${day}`
-          } else if (parseInt(month) && parseInt(month) <= 12 && parseInt(day) && parseInt(day) <= 31) {
-            return `${year}-${month}-${day}`
-          } else {
-            return time
-          }
-        } else {
-          return time
-        }
-      } else {
+      if (time === '/') {
         return time
+      } if (time) {
+        const [three, two, one] = time.split(/[-//.]/g).reverse()
+        /* 处理：年 */
+        let year = parseInt(new Date().getFullYear()) // 年 {[Int]}
+        if (!isNaN(parseInt(one))) {
+          const str = String(one).trim()
+          year = parseInt(String(year).slice(0, -1 * str.length) + str)
+        }
+        /* 处理：月 */
+        let addYear = 0 // 增加的年份 {[Int]}
+        let month = isNaN(parseInt(two)) ? 1 : parseInt(two) // 月 {[Int]}
+        for (let i = 0; ; i++) {
+          if (month > 12) {
+            addYear++
+            month -= 12
+          } else {
+            break
+          }
+        }
+        year = year + addYear
+        /* 处理：日 */
+        let year_2 = month < 12 ? year : year + 1
+        let month_2 = month < 12 ? month + 1 : month + 1 - 12
+        let day = isNaN(parseInt(three)) ? 1 : parseInt(three) // 日 {[Int]}
+        for (let i = 0; ; i++) {
+          const maxDay = new Date(new Date(`${year_2}-${month_2}`).getTime() - 1000 * 60 * 60 * 24).getDate()
+          if (day > maxDay) {
+            day -= maxDay
+            month++
+            month_2++
+            if (month > 12) {
+              month -= 12
+              year += 1
+              year_2 += 1
+            }
+            if (month_2 > 12) {
+              month_2 -= 12
+            }
+          } else {
+            break
+          }
+        }
+        /* 整合 */
+        return `${year}-${'00'.slice(0, -1 * String(month).length) + month}-${'00'.slice(0, -1 * String(day).length) + day}`
+      } else {
+        return ''
       }
     }
   }

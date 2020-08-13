@@ -4,6 +4,7 @@ import Vue from 'vue'
 import Vuex from 'vuex'
 import Api from '@/config/api'
 import Tool from './tool.js'
+import { MessageBox } from 'element-ui'
 Vue.use(Vuex)
 
 const store = new Vuex.Store({
@@ -66,9 +67,9 @@ const store = new Vuex.Store({
      * [第二页数据]
      */
     tab_list(state) {
-      const { page_list, is_computed, is_computed_id, computed_index, computed_tab, isComputed } = state
+      const { page_list, is_computed, is_computed_id, computed_index, computed_tab, isComputed, itemSummaryItemData: { order_time, deliver_date } } = state
       if (isComputed) {
-        const arr = Tool.forEachTime(page_list, is_computed, is_computed_id, computed_index, computed_tab, state)
+        const arr = Tool.forEachTime(page_list, is_computed, is_computed_id, computed_index, computed_tab, order_time, deliver_date, state)
         /* 刷新表格 */
         state.showArr.push(isComputed)
         return arr
@@ -83,28 +84,39 @@ const store = new Vuex.Store({
      * [请求：审核列表]
      */
     A_getItemGanttData({ state }) {
-      const res = JSON.parse(localStorage.getItem('审核中心：审核列表'))
-      // console.log(res)
-      /* ----- 处理数据 ----- */
-      const { itemSummaryItemData, itemGanttSummaryDatd, employeename, item_name, item_id } = res
-      /* 顶部数据 */
-      state.itemSummaryItemData = Tool.returnTopData(itemSummaryItemData)
-      state.itemGanttSummaryDatd = itemGanttSummaryDatd
-      state.employeename = employeename
-      state.item_name = item_name
-      state.item_id = item_id
-      /* 表格 */
-      const { arr, nodeObj } = Tool.returnDatalist(itemGanttSummaryDatd)
-      state.page_list = arr
-      state.nodeObj = nodeObj
+      // const res = JSON.parse(localStorage.getItem('审核中心：审核列表'))
+      // // console.log(res)
+      // /* ----- 处理数据 ----- */
+      // const { itemSummaryItemData, itemGanttSummaryDatd, employeename, item_name, item_id } = res
+      // /* 顶部数据 */
+      // state.itemSummaryItemData = Tool.returnTopData(itemSummaryItemData)
+      // state.itemGanttSummaryDatd = itemGanttSummaryDatd
+      // state.employeename = employeename
+      // state.item_name = item_name
+      // state.item_id = item_id
+      // /* 表格 */
+      // const { arr, nodeObj } = Tool.returnDatalist(itemGanttSummaryDatd)
+      // state.page_list = arr
+      // state.nodeObj = nodeObj
 
-      // const name = '甘特表提报审核页面'
-      // const obj = { gantt_audit_id: '8a8a8062735528fc0173557f8bb000a2' }
-      // const suc = function (res) {
-      //   localStorage.setItem('审核中心：审核列表', JSON.stringify(res))
-      //   console.log('审核列表 ----- ', res)
-      // }
-      // Api({ name, obj, suc })
+      const name = '甘特表提报审核页面'
+      const obj = { gantt_audit_id: '8a8a8062735528fc0173557f8bb000a2' }
+      const suc = function (res) {
+        // localStorage.setItem('审核中心：审核列表', JSON.stringify(res))
+        // console.log('审核列表 ----- ', res)
+        const { itemSummaryItemData, itemGanttSummaryDatd, employeename, item_name, item_id } = res
+        /* 顶部数据 */
+        state.itemSummaryItemData = Tool.returnTopData(itemSummaryItemData)
+        state.itemGanttSummaryDatd = itemGanttSummaryDatd
+        state.employeename = employeename
+        state.item_name = item_name
+        state.item_id = item_id
+        /* 表格 */
+        const { arr, nodeObj } = Tool.returnDatalist(itemGanttSummaryDatd)
+        state.page_list = arr
+        state.nodeObj = nodeObj
+      }
+      Api({ name, obj, suc })
     },
     /**
      * [请求：审核提交]
@@ -112,14 +124,23 @@ const store = new Vuex.Store({
     A_auditItemSummary({ state }) {
       const { page_list, item_id } = state
       const { dataList, errorArr } = Tool.submitData(page_list)
-      console.log('提交报错 ----- ', errorArr, item_id, dataList)
-      /* 发起请求 */
-      const name = '提交'
-      const obj = { item_id, dataList: JSON.stringify(dataList) }
-      const suc = function (res) {
-        console.log('提交审核返回值 ----- ', res)
+      // console.log('提交报错 ----- ', errorArr, item_id, dataList)
+      if (errorArr.length) {
+        MessageBox.alert(`${errorArr.join('')}`, '请完善后再提交', {
+          dangerouslyUseHTMLString: true,
+          confirmButtonText: '确定'
+        })
+      } else {
+        /* 发起请求 */
+        const name = '提交'
+        const obj = { item_id, dataList: JSON.stringify(dataList) }
+        const suc = function (res) {
+          // console.log('提交审核返回值 ----- ', res)
+          // eslint-disable-next-line
+          dg.close()
+        }
+        Api({ name, obj, suc })
       }
-      Api({ name, obj, suc })
     }
   }
 })
