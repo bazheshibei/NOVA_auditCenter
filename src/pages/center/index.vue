@@ -4,17 +4,19 @@
 <template>
   <div class="pageBox">
 
-    <!-- 顶部 -->
-    <com-top></com-top>
+    <div class="pageTopBox">
+      <!-- 顶部 -->
+      <com-top></com-top>
 
-    <el-tabs class="comTabs" v-model="tabTitle" type="border-card" v-for="(val, key) in showArr" :key="'tabs_' + key" v-show="key === showArr.length - 1">
-      <el-tab-pane v-for="(item, index) in tab_list" :key="'tab_' + index" :label="tabName[item.gantt_type]">
-        <!-- 表格 -->
-        <com-table :listIndex="index" :listType="item.gantt_type"></com-table>
-        <!-- 历史审核记录 -->
-        <com-record :listIndex="index"></com-record>
-      </el-tab-pane>
-    </el-tabs>
+      <el-tabs class="comTabs" v-model="tabTitle" type="border-card" v-for="(val, key) in showArr" :key="'tabs_' + key" v-show="key === showArr.length - 1">
+        <el-tab-pane v-for="(item, index) in tab_list" :key="'tab_' + index" :label="tabName[item.gantt_type]">
+          <!-- 表格 -->
+          <com-table :listIndex="index" :listType="item.gantt_type"></com-table>
+          <!-- 历史审核记录 -->
+          <com-record :listIndex="index"></com-record>
+        </el-tab-pane>
+      </el-tabs>
+    </div>
 
     <!-- 下一步 -->
     <div class="bottomBox">
@@ -42,15 +44,19 @@ export default {
     /** 请求：审核列表 **/
     this.$store.dispatch('A_getItemGanttData')
 
-    // /* 平台方法 */
-    // // eslint-disable-next-line
-    // dg.removeBtn('cancel')
-    // // eslint-disable-next-line
-    // dg.removeBtn('saveAndAdd')
-    // // eslint-disable-next-line
-    // dg.removeBtn('saveAndClose')
-    // // eslint-disable-next-line
-    // dg.removeBtn('saveNoClose')
+    try {
+      /* 平台方法 */
+      // eslint-disable-next-line
+      dg.removeBtn('cancel')
+      // eslint-disable-next-line
+      dg.removeBtn('saveAndAdd')
+      // eslint-disable-next-line
+      dg.removeBtn('saveAndClose')
+      // eslint-disable-next-line
+      dg.removeBtn('saveNoClose')
+    } catch (err) {
+      //
+    }
   },
   computed: {
     ...mapState(['showArr', 'page_list']),
@@ -82,15 +88,27 @@ export default {
   height: 100%;
   font-size: 12px;
   background: #ffffff;
+  overflow-y: hidden;
+}
+
+.pageTopBox {
+  width: 100%;
+  height: calc(100% - 40px);
+  margin-bottom: 40px;
   overflow-y: auto;
 }
 
 /*** 底部 ***/
 .bottomBox {
+  width: calc(100% - 30px);
   padding: 6px 15px;
+  border-top: 1px solid #EBEEF5;
   display: flex;
+  flex: 1;
   justify-content: flex-end;
-  /* border-top: 1px solid #EBEEF5; */
+  position: fixed;
+  bottom: 0;
+  right: 0;
 }
 </style>
 

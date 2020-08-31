@@ -118,69 +118,115 @@ Tool.returnDatalist = function (itemGanttSummaryDatd) {
 
 /**
  * [计算时间]
- * @param {[Array]}   page_list      数据
- * @param {[Boolean]} is_computed    保存后，是否根据当前节点时间，计算其他节点
- * @param {[String]}  is_computed_id 重新计算时，作为基础值的节点（此节点自身不变，重新计算最大最小值）
- * @param {[Int]}     computed_index 重新计算的行索引
- * @param {[String]}  computed_tab   重新计算的tab
- * @param {[String]}  order_time     下单时间
- * @param {[String]}  deliver_date   客人交期
+ * @param {[Array]}   page_list     数据
+ * @param {[Boolean]} is_computed   保存后，是否根据当前节点时间，计算其他节点
+ * @param {[String]}  changeIndexId 修改的数据索引及节点ID、节点名称 '2c9xadw244_节点名称'
+ * @param {[String]}  computed_tab  重新计算的tab
+ * @param {[String]}  order_time    下单时间
+ * @param {[String]}  deliver_date  客人交期
  * @param {[Object]}  state
  */
-Tool.forEachTime = function (page_list, is_computed, is_computed_id, computed_index, computed_tab, order_time, deliver_date, state) {
+Tool.forEachTime = function (page_list, is_computed, changeIndexId, computed_tab, order_time, deliver_date, state) {
   const that = this
   if (is_computed) {
-    console.log('page_list ----- ', page_list)
+    const [itemIndex, nodeId, nodeName] = changeIndexId.split('_')
     /* ----- 重新计算各节点日期 ----- */
     page_list.map(function (tab) {
       if (tab.gantt_type === computed_tab) { // 当前 tab
         const { tableData = [] } = tab
         /* 提取当前行的全部节点 { ${变量}: 自身时间 } */
         const tableNodeObj = {}
-        const tabData = tableData[computed_index]
+        const tabData = tableData[itemIndex]
         for (const x in tabData) {
-          if (x !== 'nextAuditData' && x !== 'rowType' && x !== 'count' && x !== 'short_name' && x !== 'is_thread') {
-            const { node_code, time } = tabData[x]
-            tableNodeObj['${' + node_code + '}'] = time
+          const node = tabData[x]
+          if (node instanceof Object && (node.node_id || node.node_code)) {
+            const { time, node_code } = node
+            if (time && time !== '/') {
+              tableNodeObj['${' + node_code + '}'] = time
+            }
           }
         }
         const nodeCodeObj = Object.assign({}, tab.clacNodeMap, tableNodeObj)
-        /* 重新计算：最大值、最小值、当前值 */
+        /* ----- 计算：根据当前节点计算其他节点 ----- */
         let errorNum = 0 // 异常节点数
-        // console.log('tableData ----- ', tableData)
-        tableData.forEach(function (item, itemIndex) {
+        tableData.forEach(function (item, index) {
           if (item.count === 3) {
             for (const x in item) {
-              if (x !== 'nextAuditData' && x !== 'rowType' && x !== 'count' && x !== 'short_name' && x !== 'is_thread') {
-                const node = item[x]
-                let max = node.max_plant_enddate
-                let min = node.min_plant_enddate
-                /* 重新计算时间：指定行 */
-                if (itemIndex === computed_index) {
-                  const { max_section_value, min_section_value, sys_clac_formula } = node
-                  if (x !== is_computed_id) {
-                    const self = that._returnTime(sys_clac_formula, nodeCodeObj)
-                    if (self !== node.time) {
-                      node.time = self
-                      node.audit_process_record = '其他节点变更后，重新计算'
-                    }
-                  }
-                  max = that._returnTime(max_section_value, nodeCodeObj)
-                  min = that._returnTime(min_section_value, nodeCodeObj)
+              const node = item[x]
+              if (node instanceof Object && (node.node_id || node.node_code) && x === nodeId) { // 自身节点
+                /* 自身：验证是否报错 */
+                const { node_code, time, max_plant_enddate, min_plant_enddate } = node
+                const { status, maxMinText } = that._isError(max_plant_enddate, min_plant_enddate, time, order_time, deliver_date)
+                node.audit_process_record = status ? node.audit_process_record : ''
+                node.error = status
+                node.maxMinText = maxMinText
+                nodeCodeObj['${' + node_code + '}'] = time
+                if (status) {
+                  errorNum++
+                }
+              }
+            }
+            for (const x in item) {
+              const node = item[x]
+              if (node instanceof Object && (node.node_id || node.node_code) && x !== nodeId) { // 其他节点
+                /* 改变的：{ code } */
+                const { node_code } = tabData[nodeId]
+                /* 引用到此节点的其他节点：重新计算 */
+                const { sys_clac_formula, max_section_value, min_section_value } = node
+                if (sys_clac_formula.indexOf(node_code) > 0) { // 引用了此节点
+                  const now = that._returnTime(sys_clac_formula, nodeCodeObj)
+                  const max = that._returnTime(max_section_value, nodeCodeObj)
+                  const min = that._returnTime(min_section_value, nodeCodeObj)
+                  const { status, maxMinText } = that._isError(max, min, now, order_time, deliver_date)
+                  node.time = now
+                  node.final_audit_plan_enddate = now
+                  node.audit_process_record = status ? `${nodeName} 节点变更后，重新计算` : ''
                   node.max_plant_enddate = max
                   node.min_plant_enddate = min
-                  node.maxMinText = `最早：${min}，最晚：${max}`
-                }
-                /** 验证：计划时间是否在区间内 **/
-                const errorStatus = that._isError(max, min, node.time, order_time, deliver_date)
-                node.error = errorStatus
-                if (errorStatus) {
-                  errorNum++
+                  node.error = status
+                  node.maxMinText = maxMinText
+                  if (status) {
+                    errorNum++
+                  }
                 }
               }
             }
           }
         })
+
+        // tableData.forEach(function (item, index) {
+        //   if (item.count === 3) {
+        //     for (const x in item) {
+        //       const node = item[x]
+        //       if (node instanceof Object && (node.node_id || node.node_code)) {
+        //         let max = node.max_plant_enddate
+        //         let min = node.min_plant_enddate
+        //         /* 重新计算时间：指定行 */
+        //         if (index === itemIndex) {
+        //           const { max_section_value, min_section_value, sys_clac_formula } = node
+        //           if (x !== nodeId) {
+        //             const self = that._returnTime(sys_clac_formula, nodeCodeObj)
+        //             if (self !== node.time) {
+        //               node.time = self
+        //               node.audit_process_record = status ? `${nodeName} 节点变更后，重新计算` : ''
+        //             }
+        //           }
+        //           max = that._returnTime(max_section_value, nodeCodeObj)
+        //           min = that._returnTime(min_section_value, nodeCodeObj)
+        //           node.max_plant_enddate = max
+        //           node.min_plant_enddate = min
+        //           node.maxMinText = `最早：${min}，最晚：${max}`
+        //         }
+        //         /** 验证：计划时间是否在区间内 **/
+        //         const { status: errorStatus } = that._isError(max, min, node.time, order_time, deliver_date)
+        //         node.error = errorStatus
+        //         if (errorStatus) {
+        //           errorNum++
+        //         }
+        //       }
+        //     }
+        //   }
+        // })
         tab.errorNum = errorNum
       }
     })
@@ -192,14 +238,14 @@ Tool.forEachTime = function (page_list, is_computed, is_computed_id, computed_in
       /* 重新计算：最大值、最小值、当前值 */
       const { tableData = [] } = tab
       let errorNum = 0
-      tableData.forEach(function (item, itemIndex) {
+      tableData.forEach(function (item) {
         if (item.count === 3) {
           for (const x in item) {
-            if (x !== 'nextAuditData' && x !== 'rowType' && x !== 'count' && x !== 'short_name' && x !== 'is_thread') {
-              const node = item[x]
+            const node = item[x]
+            if (node instanceof Object && (node.node_id || node.node_code)) {
               const { max_plant_enddate, min_plant_enddate, time } = node
               /** 验证：计划时间是否在区间内 **/
-              const errorStatus = that._isError(max_plant_enddate, min_plant_enddate, time, order_time, deliver_date)
+              const { status: errorStatus } = that._isError(max_plant_enddate, min_plant_enddate, time, order_time, deliver_date)
               node.error = errorStatus
               if (errorStatus) {
                 errorNum++
@@ -226,14 +272,16 @@ Tool.submitData = function (page_list = []) {
       /** 返回：整理后的数据 -- 工厂 **/
       const { arr, error } = that._returnData_3(tab)
       dataList = dataList.concat(arr)
-      errorArr.push(error)
-      // console.log('工厂 ----- ', arr, error)
+      if (error) {
+        errorArr.push(error)
+      }
     } else {
       /** 返回：整理后的数据 -- 大货 **/
       const { arr, error } = that._returnData_1(tab)
       dataList = dataList.concat(arr)
-      errorArr.push(error)
-      // console.log('大货 ----- ', arr, error)
+      if (error) {
+        errorArr.push(error)
+      }
     }
   })
   return { dataList, errorArr }
@@ -251,9 +299,10 @@ Tool._returnData_3 = function (tab = {}) {
   tab.tableData.forEach(function (table) {
     if (table.is_thread === '1') {
       for (const x in table) {
-        if (x !== 'nextAuditData' && x !== 'rowType' && x !== 'count' && x !== 'short_name' && x !== 'is_thread') {
-          if (table[x].item_gantt_id) {
-            p_item_ganttt_id = table[x].item_gantt_id
+        const node = table[x]
+        if (node instanceof Object && (node.node_id || node.node_code)) {
+          if (node.item_gantt_id) {
+            p_item_ganttt_id = node.item_gantt_id
             break
           }
         }
@@ -267,22 +316,28 @@ Tool._returnData_3 = function (tab = {}) {
       const { gantt_audit_id } = tab
       /* data 赋值 */
       const { short_name } = table
-      const { now_audit_stage, type, people, remark, auditNodeMap: { node_id } } = table.nextAuditData
-      const data_2 = { gantt_audit_id: gantt_audit_id[short_name], short_name, now_audit_stage, audit_result: type, next_audit_stage: type === 1 ? node_id : '', audit_employeeid: type === 1 ? people : '', audit_remark: type === 1 ? '' : remark, p_item_ganttt_id: '' }
+      const { now_audit_stage, type, people, remark, auditNodeMap = {} } = table.nextAuditData
+      const { node_id: auditNodeMap_node_id = '' } = auditNodeMap
+      const data_2 = { gantt_audit_id: gantt_audit_id[short_name], short_name, now_audit_stage, audit_result: type, next_audit_stage: type === 1 ? auditNodeMap_node_id : '', audit_employeeid: type === 1 ? people : '', audit_remark: type === 1 ? '' : remark, p_item_ganttt_id: '' }
       const obj = Object.assign({}, data, data_2, { p_item_ganttt_id, nodeData: [] })
       /* 循环数据 */
       for (const x in table) {
-        if (x !== 'nextAuditData' && x !== 'rowType' && x !== 'count' && x !== 'short_name' && x !== 'is_thread') {
+        const node = table[x]
+        if (node instanceof Object && (node.node_id || node.node_code)) {
           /* 添加数据 */
-          const { item_gantt_id, item_gantt_detail_id, item_node_id, final_audit_plan_enddate, audit_process_record, plan_enddate, node_code } = table[x]
-          const nodeData = { item_node_id, final_audit_plan_enddate, audit_process_record: audit_process_record.split('原因：')[1], plan_enddate, node_code }
-          obj.item_gantt_id = item_gantt_id
-          obj.item_gantt_detail_id = item_gantt_detail_id
-          obj.nodeData.push(nodeData)
+          const { item_gantt_id, item_gantt_detail_id, item_node_id, time: final_audit_plan_enddate, audit_process_record, plan_enddate, node_code, text } = node
+          const auditText = audit_process_record.split('原因：')[1]
+          /* 提交：改变过的节点 ((初始时间 !== 当前时间 && 有当前时间) || (现在异常原因 !== 原先异常原因 && 有现在异常原因)) */
+          if ((plan_enddate !== final_audit_plan_enddate && final_audit_plan_enddate) || (auditText !== text && auditText)) {
+            const nodeData = { item_node_id, final_audit_plan_enddate, audit_process_record: audit_process_record.split('原因：')[1], plan_enddate, node_code }
+            obj.item_gantt_id = item_gantt_id
+            obj.item_gantt_detail_id = item_gantt_detail_id
+            obj.nodeData.push(nodeData)
+          }
           /* 报错 */
           if (type === 2 && !remark) {
             error = '<p>大货工厂甘特表：驳回状态下，驳回意见必填</p>'
-          } else if (type === '' || (type === 1 && people === '')) {
+          } else if (type === '' || (type === 1 && people === '' && auditNodeMap_node_id)) {
             error = '<p>大货工厂甘特表：请完善审核信息后再提交</p>'
           }
         }
@@ -301,27 +356,36 @@ Tool._returnData_1 = function (tab = {}) {
   let error = ''
   const { gantt_type } = tab
   const data = { gantt_type }
-  tab.tableData.forEach(function (table) {
+  tab.tableData.forEach(function (table, tableIndex) {
     if (table.count === 3) { // 需要调整的行
       const { nodeAuditids } = tab
-      /* data 赋值 */
       const { short_name } = table
-      const { now_audit_stage, type, people, remark, auditNodeMap: { node_id } } = table.nextAuditData
-      const data_2 = { short_name, now_audit_stage, audit_result: type, next_audit_stage: type === 1 ? node_id : '', audit_employeeid: type === 1 ? people : '', audit_remark: type === 1 ? '' : remark, p_item_ganttt_id: '' }
+      const { now_audit_stage, type, people, remark, auditNodeMap = {} } = table.nextAuditData
+      const { node_id: auditNodeMap_node_id = '' } = auditNodeMap
+      const data_2 = { short_name, now_audit_stage, audit_result: type, next_audit_stage: type === 1 ? auditNodeMap_node_id : '', audit_employeeid: type === 1 ? people : '', audit_remark: type === 1 ? '' : remark, p_item_ganttt_id: '' }
       /* 循环数据 */
       for (const x in table) {
-        if (x !== 'nextAuditData' && x !== 'rowType' && x !== 'count' && x !== 'short_name' && x !== 'is_thread') {
+        const node = table[x]
+        if (node instanceof Object && (node.node_id || node.node_code)) {
           /* 添加数据 */
-          const { item_gantt_id, item_gantt_detail_id, item_node_id, final_audit_plan_enddate, audit_process_record, plan_enddate, node_code } = table[x]
-          const nodeData = { item_node_id, final_audit_plan_enddate, audit_process_record: audit_process_record.split('原因：')[1], plan_enddate, node_code }
+          const { item_gantt_id, item_gantt_detail_id, item_node_id, time: final_audit_plan_enddate, audit_process_record, plan_enddate, node_code, text } = node
+          const auditText = audit_process_record.split('原因：')[1]
           if (!obj[item_gantt_detail_id]) {
-            obj[item_gantt_detail_id] = Object.assign({}, data, data_2, { item_gantt_id, item_gantt_detail_id, gantt_audit_id: nodeAuditids[item_gantt_detail_id], nodeData: [] })
+            obj[item_gantt_detail_id] = {}
           }
-          obj[item_gantt_detail_id].nodeData.push(nodeData)
-          /* 报错 */
+          if (!obj[item_gantt_detail_id][tableIndex]) {
+            obj[item_gantt_detail_id][tableIndex] = Object.assign({}, data, data_2, { nodeData: [] })
+          }
+          obj[item_gantt_detail_id][tableIndex] = Object.assign({}, obj[item_gantt_detail_id][tableIndex], { item_gantt_id, item_gantt_detail_id, gantt_audit_id: nodeAuditids[item_gantt_detail_id] })
+          if ((plan_enddate !== final_audit_plan_enddate && final_audit_plan_enddate) || (auditText !== text && auditText)) {
+            /* 提交：改变过的节点 ((初始时间 !== 当前时间 && 有当前时间) || (现在异常原因 !== 原先异常原因 && 有现在异常原因)) */
+            const nodeData = { item_node_id, final_audit_plan_enddate, audit_process_record: auditText, plan_enddate, node_code }
+            obj[item_gantt_detail_id][tableIndex].nodeData.push(nodeData)
+          }
+          /* 报错：审核信息 */
           if (type === 2 && !remark) {
             error = '<p>大货甘特表汇总：驳回状态下，驳回意见必填</p>'
-          } else if (type === '' || (type === 1 && people === '')) {
+          } else if (type === '' || (type === 1 && people === '' && auditNodeMap_node_id)) {
             error = '<p>大货甘特表汇总：请完善审核信息后再提交</p>'
           }
         }
@@ -330,7 +394,9 @@ Tool._returnData_1 = function (tab = {}) {
   })
   const arr = []
   for (const x in obj) {
-    arr.push(obj[x])
+    for (const y in obj[x]) {
+      arr.push(obj[x][y])
+    }
   }
   return { arr, error }
 }
@@ -355,13 +421,14 @@ Tool._getData = function (tabData) {
     /* 添加属性：本次调整 */
     item.time = item.change_plan_time ? item.change_plan_time : item.plan_enddate // 展示的时间 （变更时间 || 原始时间，后期会变为审批调整时间）
     item.timeType = 1 //                  未审批调整
-    item.abnormal_reason = '' //          异常原因：异常原因
+    item.verification_remark = '' //      异常原因：异常原因
     item.change_plan_time = '' //         异常原因：调整后日期
     item.change_remaark = '' //           异常原因：调整/异常说明
     item.frist_plan_time = '' //          异常原因：首次提报日期
     item.is_change = 0 //                 异常原因：是否调整1是0否
     item.final_audit_plan_enddate = '' // 审批调整：审核调整最终计划完成时间
     item.audit_process_record = '' //     审批调整：审核过程记录
+    item.text = '' //                     审批调整：审核过程记录：初始值
     /* 赋值：表格数据 */
     obj[item.item_node_id] = item
     /* 节点分类 */
@@ -386,11 +453,11 @@ Tool._getData = function (tabData) {
     if (!obj[item.item_node_id]) {
       obj[item.item_node_id] = {}
     }
-    obj[item.item_node_id].abnormal_reason = item.abnormal_reason //   异常原因
-    obj[item.item_node_id].change_plan_time = item.change_plan_time // 调整后日期
-    obj[item.item_node_id].change_remaark = item.change_remaark //     调整/异常说明
-    obj[item.item_node_id].frist_plan_time = item.frist_plan_time //   首次提报日期
-    obj[item.item_node_id].is_change = item.is_change //               是否调整1是0否
+    obj[item.item_node_id].verification_remark = item.verification_remark // 异常原因
+    obj[item.item_node_id].change_plan_time = item.change_plan_time //       调整后日期
+    obj[item.item_node_id].change_remaark = item.change_remaark //           调整/异常说明
+    obj[item.item_node_id].frist_plan_time = item.frist_plan_time //         首次提报日期
+    obj[item.item_node_id].is_change = item.is_change //                     是否调整1是0否
     if (item.change_plan_time) {
       obj[item.item_node_id].time = item.change_plan_time
     }
@@ -403,6 +470,7 @@ Tool._getData = function (tabData) {
     }
     obj[item.item_node_id].final_audit_plan_enddate = item.final_audit_plan_enddate // 审核调整最终计划完成时间
     obj[item.item_node_id].audit_process_record = item.audit_process_record //         审核过程记录
+    obj[item.item_node_id].text = item.audit_process_record //                         审核过程记录：初始值
   })
   /* ----- 合并：大货获取gantt_audit_id ----- */
   const { nodeAuditids = {} } = tabData
@@ -465,6 +533,61 @@ Tool._returnTime = function (str = '', nodeCodeObj = {}) {
   }
 }
 /**
+ * [转换：处理时间格式]
+ * @param {[String]} time 时间
+ */
+Tool._toggleTime = function (time) {
+  if (time === '/') {
+    return time
+  } if (time) {
+    const [three, two, one] = time.split(/[-//.]/g).reverse()
+    /* 处理：年 */
+    let year = parseInt(new Date().getFullYear()) // 年 {[Int]}
+    if (!isNaN(parseInt(one))) {
+      const str = String(one).trim()
+      year = parseInt(String(year).slice(0, -1 * str.length) + str)
+    }
+    /* 处理：月 */
+    let addYear = 0 // 增加的年份 {[Int]}
+    let month = isNaN(parseInt(two)) ? 1 : parseInt(two) // 月 {[Int]}
+    for (let i = 0; ; i++) {
+      if (month > 12) {
+        addYear++
+        month -= 12
+      } else {
+        break
+      }
+    }
+    year = year + addYear
+    /* 处理：日 */
+    let year_2 = month < 12 ? year : year + 1
+    let month_2 = month < 12 ? month + 1 : month + 1 - 12
+    let day = isNaN(parseInt(three)) ? 1 : parseInt(three) // 日 {[Int]}
+    for (let i = 0; ; i++) {
+      const maxDay = new Date(new Date(`${year_2}-${month_2}`).getTime() - 1000 * 60 * 60 * 24).getDate()
+      if (day > maxDay) {
+        day -= maxDay
+        month++
+        month_2++
+        if (month > 12) {
+          month -= 12
+          year += 1
+          year_2 += 1
+        }
+        if (month_2 > 12) {
+          month_2 -= 12
+        }
+      } else {
+        break
+      }
+    }
+    /* 整合 */
+    return `${year}-${'00'.slice(0, -1 * String(month).length) + month}-${'00'.slice(0, -1 * String(day).length) + day}`
+  } else {
+    return ''
+  }
+}
+/**
  * [验证：计划事件是否在区间内]
  * @param {[String]} maxVal       最大值
  * @param {[String]} minVal       最小值
@@ -477,15 +600,36 @@ Tool._isError = function (maxVal = '', minVal = '', plantVal = '', order_time = 
   const min = isNaN(new Date(minVal).getTime()) ? 0 : new Date(minVal).getTime() //       最小值
   const plant = isNaN(new Date(plantVal).getTime()) ? 0 : new Date(plantVal).getTime() // 计划时间
   const order = new Date(order_time).getTime() //                                         下单日期
-  const deliver = new Date(deliver_date).getTime() //                                     交货日期
-  const num_1 = min || order //   边界值：最小
-  const num_2 = max || deliver // 边界值：最大
-  const time_1 = this._returnYearMonthDay(num_1)
-  const time_2 = this._returnYearMonthDay(num_2)
-  if (num_1 && num_2 && (num_1 <= plant && plant <= num_2)) {
-    return { status: false, maxMinText: `最早：${time_1}，最晚：${time_2}` }
+  const deliver = new Date(deliver_date).getTime() //                                     客人交期
+  const time_1 = this._returnYearMonthDay(min)
+  const time_2 = this._returnYearMonthDay(max)
+  let maxMinText = `最早：${time_1}，最晚：${time_2}` // 提示文字
+  /* 最大最小值超范围 */
+  const errorTextArr = []
+  if (min < order) {
+    errorTextArr.push('最早时间早于 下单日期')
+  }
+  if (deliver < min) {
+    errorTextArr.push('最早时间晚于 客人交期')
+  }
+  if (max < order) {
+    errorTextArr.push('最晚时间早于 下单日期')
+  }
+  if (deliver < max) {
+    errorTextArr.push('最晚时间晚于 客人交期')
+  }
+  if (errorTextArr.length) {
+    maxMinText += `，${errorTextArr.join('，')}`
+  }
+  /* 返回 */
+  if (order <= plant && plant <= deliver) { //             在 下单日期 客人交期 之间
+    if (min && max && (min <= plant && plant <= max)) { // 在 最小值   最大值  之间
+      return { status: false, maxMinText }
+    } else {
+      return { status: true, maxMinText }
+    }
   } else {
-    return { status: true, maxMinText: `最早：${time_1}，最晚：${time_2}` }
+    return { status: true, maxMinText }
   }
 }
 /**

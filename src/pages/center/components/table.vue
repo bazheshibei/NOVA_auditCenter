@@ -13,13 +13,13 @@
 
     <el-table :data="tab_list[listIndex].tableData" size="mini" border :span-method="objectSpanMethod">
       <!-- 操作 -->
-      <el-table-column label="审核" width="220" fixed>
+      <el-table-column label="审核" width="220" fixed="left">
         <template slot-scope="scope">
           <div v-if="scope.row.count > 1 && shenheObj[scope.$index]">
             <p class="tableP">
               审核结果：
-              <el-radio v-model="shenheObj[scope.$index].type" :label="1" @change="changeEvent('type', $event, scope.$index)">通过</el-radio>
-              <el-radio v-model="shenheObj[scope.$index].type" :label="2" @change="changeEvent('type', $event, scope.$index)">驳回</el-radio>
+              <el-radio v-model="shenheObj[scope.$index].type" :label="1" @change="changeEvent('type', $event, scope.$index, scope.row.nextAuditData.nextAuditNode)">通过</el-radio>
+              <el-radio v-model="shenheObj[scope.$index].type" :label="2" @change="changeEvent('type', $event, scope.$index, scope.row.nextAuditData.nextAuditNode)">驳回</el-radio>
             </p>
             <p class="tableP" v-if="shenheObj[scope.$index].type === 2">
               <el-input class="tableInput" size="mini" v-model="shenheObj[scope.$index].remark" placeholder="请填写驳回意见" @change="changeEvent('remark', $event, scope.$index)"></el-input>
@@ -27,7 +27,7 @@
             <p class="tableP" v-if="shenheObj[scope.$index].type === 1">
               <span>下一步审核：<span>{{scope.row.nextAuditData.nextAuditNode === 3 ? '审核结束' : scope.row.nextAuditData.auditNodeMap.node_name}}</span></span>
             </p>
-            <p class="tableP" v-if="shenheObj[scope.$index].type === 1">
+            <p class="tableP" v-if="shenheObj[scope.$index].type === 1 && scope.row.nextAuditData.nextAuditNode !== 3">
               下一步审核人：
               <el-select class="tableSelect" size="mini" v-model="shenheObj[scope.$index].people" :multiple="true" @change="changeEvent('people', $event, scope.$index)">
                 <el-option class="comSelectOptions" v-for="item in scope.row.nextAuditData.auditEmployeeMap" :key="item.employeeid" :label="item.employeename" :value="item.employeeid"></el-option>
@@ -37,7 +37,7 @@
         </template>
       </el-table-column>
       <!-- 项目名称 -->
-      <el-table-column label="项目名称" width="100" fixed>
+      <el-table-column label="项目名称" width="100" fixed="left">
         <template slot-scope="scope">
           <p>{{item_name}}</p>
           <p>{{scope.row.short_name}}</p>
@@ -47,7 +47,7 @@
       <!-- 工厂信息 -->
 
       <!-- 分类列 -->
-      <el-table-column width="100" fixed>
+      <el-table-column width="100" fixed="left">
         <template slot-scope="scope">
           <span v-if="scope.row.rowType === 1">计划完成</span>
           <span v-else-if="scope.row.rowType === 2">本次调整</span>
@@ -62,6 +62,11 @@
               <div v-if="scope.row[item.item_node_id]">
                 <!-- 计划完成 -->
                 <div v-if="scope.row.rowType === 1">
+                  <!-- {{scope.row[item.item_node_id].is_quote}}
+                  <br>
+                  {{scope.row[item.item_node_id].node_code}}
+                  <br>
+                  {{scope.row[item.item_node_id].sys_clac_formula}} -->
                   <!-- 计划完成：异常 -->
                   <div v-if="scope.row[item.item_node_id].error">
                     <el-popover popper-class="comPopover" :visible-arrow="false" placement="top" trigger="hover" :content="'提报日期：' + scope.row[item.item_node_id].plan_enddate">
@@ -82,13 +87,13 @@
                 </div>
                 <!-- 本次调整 -->
                 <div v-else-if="scope.row.rowType === 2" style="text-align: left;">
-                  <p v-if="scope.row[item.item_node_id].change_remaark">调整后：{{scope.row[item.item_node_id].change_plan_time}}</p>
+                  <p v-if="scope.row[item.item_node_id].change_remaark">调整后：{{scope.row[item.item_node_id].change_plan_time || '未调整'}}</p>
                   <p v-if="scope.row[item.item_node_id].change_remaark">原因：{{scope.row[item.item_node_id].change_remaark}}</p>
                 </div>
                 <!-- 审批调整 -->
-                <div v-else-if="scope.row.rowType === 3">
+                <div v-else-if="scope.row.rowType === 3" @click="edit(scope.$index, scope.row, item)">
                   <p v-if="scope.row[item.item_node_id].audit_process_record" style="text-align: left;">{{scope.row[item.item_node_id].audit_process_record}}</p>
-                  <i class="el-icon-edit-outline editIcon hover" @click="edit(scope.row, item.item_node_id, '审批调整', scope.$index)"></i>
+                  <i class="el-icon-edit-outline editIcon hover"></i>
                 </div>
               </div>
               <span v-else>--</span>
@@ -100,7 +105,7 @@
     </el-table>
 
     <!-- 弹出层 -->
-    <el-dialog class="comDialog" :title="d_data.title" :visible.sync="dialogVisible" width="80%">
+    <el-dialog class="comDialog" :title="d_data.title" :visible.sync="dialogVisible" width="80%" :close-on-click-modal="false" :close-on-press-escape="false">
       <!-- 弹出层：表单 -->
       <div class="lineBox">
         <div class="lineLabel">当前节点：</div>
@@ -109,19 +114,20 @@
       <div class="lineBox">
         <div class="lineLabel">系统计算日期：</div>
         <div class="lineText">{{d_data.plan_enddate}}</div>
-        <div class="lineLabel" v-if="d_data.title === '节点异常处理'">异常原因：</div>
-        <div class="lineText" v-if="d_data.title === '节点异常处理'">{{d_data.abnormal_reason}}</div>
+        <div class="lineLabel">异常原因：</div>
+        <div class="lineText">{{d_data.verification_remark}}</div>
       </div>
       <div class="lineBox">
         <div class="lineLabel">是否调整日期：</div>
         <div class="lineText">
-          <el-radio v-model="d_data.is_change" :label="1">是</el-radio>
-          <el-radio v-model="d_data.is_change" :label="0">否</el-radio>
+          <el-radio v-model="d_data.is_change" :label="1" @change="isChangeTime">是</el-radio>
+          <el-radio v-model="d_data.is_change" :label="0" @change="isChangeTime">否</el-radio>
         </div>
         <div class="lineLabel">调整后日期：</div>
         <div class="lineText">
-          <el-input class="comInput" :disabled="d_data.is_change === 0 ? true : false" slot="reference" size="mini" placeholder="请输入日期"
-            v-model="d_data.change_plan_time"
+          <el-input class="comInput" :class="d_data.error && d_data.is_change === 1 ? 'errorInput' : ''" slot="reference" size="mini" placeholder="请输入日期"
+            :disabled="d_data.is_change === 0 ? true : false"
+            v-model="d_data.change_plan_time" @blur="blur_dialog('change_plan_time')"
           ></el-input>
         </div>
       </div>
@@ -136,22 +142,25 @@
         </div>
       </div>
       <div class="lineBox">
-        <div class="lineLabel"><span class="red">*</span>调整/异常原因：</div>
+        <div class="lineLabel">
+          <span class="red" v-if="d_data.error">*</span>
+          调整/异常原因：
+        </div>
         <div class="lineText">
           <el-input class="comInput2" v-model="d_data.change_remaark" size="mini" placeholder="请填写调整/异常原因"></el-input>
         </div>
       </div>
-      <div class="lineBox">
+      <div class="lineBox" v-if="d_data.is_change === 1">
         <div class="lineLabel" style="width: auto;">&nbsp;&nbsp;&nbsp;是否根据当前节点的时间去计算其他节点：</div>
         <div class="lineText">
-          <el-radio v-model="d_data.is_computed" :label="true">是</el-radio>
-          <el-radio v-model="d_data.is_computed" :label="false">否</el-radio>
+          <el-radio v-model="d_data.isComputedOther" :label="true">是</el-radio>
+          <el-radio v-model="d_data.isComputedOther" :label="false">否</el-radio>
         </div>
       </div>
       <!-- 弹出层：按钮 -->
       <span slot="footer" class="dialog-footer">
-        <el-button type="primary" size="mini" @click="submit(d_data.title)">保 存</el-button>
         <el-button size="mini" @click="dialogVisible = false">取 消</el-button>
+        <el-button type="primary" size="mini" @click="submit(d_data.title)">保 存</el-button>
       </span>
     </el-dialog>
 
@@ -159,6 +168,7 @@
 </template>
 
 <script>
+import Tool from '../../../store/tool.js'
 import { mapState, mapGetters } from 'vuex'
 export default {
   props: ['listIndex', 'listType'], // 表格索引, 表格type
@@ -182,7 +192,7 @@ export default {
     this.shenheObj = shenheObj
   },
   computed: {
-    ...mapState(['nodeObj', 'page_list', 'item_name', 'employeename']),
+    ...mapState(['nodeObj', 'page_list', 'item_name', 'employeename', 'itemSummaryItemData']),
     ...mapGetters(['tab_list'])
   },
   methods: {
@@ -191,9 +201,11 @@ export default {
      * @param {[String]} name  属性名
      * @param {[String]} event 属性值
      * @param {[Int]}    index  行索引
+     * @param {[Int]}    nextAuditNode 下一步审核
      */
-    changeEvent(name, event, index) {
+    changeEvent(name, event, index, nextAuditNode) {
       let data = event
+      /* 选中：审核人 */
       if (name === 'people') {
         if (typeof event === 'string') {
           data = event
@@ -201,69 +213,120 @@ export default {
           data = event.join(',')
         }
       }
+      /* 选中后：下一步审核 === 结束 */
+      if (nextAuditNode === 3) {
+        this.page_list[this.listIndex].tableData[index].nextAuditData.people = ''
+      }
+      /* 事件赋值 */
       this.page_list[this.listIndex].tableData[index].nextAuditData[name] = data
     },
     /**
-     * [弹出层：修改]
-     * @param {[Object]} row    当前行的数据
-     * @param {[String]} nodeId 当前列（节点）ID
-     * @param {[String]} title  弹出层标题
-     * @param {[Int]}    index  行索引
+     * [弹出层：显示]
+     *  @param {[Int]}   index    行索引
+     * @param {[Object]} row      当前行的数据
+     * @param {[Object]} nodeData 节点信息
      */
-    edit(row, nodeId, title, index) {
-      // console.log(row, index)
-      const { node_name, plan_enddate, change_remaark, is_change, is_quote, change_plan_time, abnormal_reason, max_plant_enddate, min_plant_enddate } = row[nodeId]
+    edit(index, row, nodeData) {
+      // console.log(row, nodeData)
+      const { itemSummaryItemData: { order_time, deliver_date }, item_name } = this // 下单时间，客人交期,项目名称
+      const { short_name } = row // 工厂名称
+      const { item_node_id: nodeId, node_name: nodeName } = nodeData // 节点ID，节点名称
+      const { error, time, audit_process_record, is_change, isComputedOther = false, is_quote, final_audit_plan_enddate: change_plan_time, verification_remark, max_plant_enddate, min_plant_enddate, plan_enddate } = row[nodeId]
+      const node_name = short_name ? [item_name, short_name, nodeName].join(' > ') : [item_name, nodeName].join(' > ')
+      const change_remaark = audit_process_record.split('原因：')[1] || ''
       /* 赋值 */
       const d_data = {
-        index, //              行索引
-        title, //              弹出层标题
-        nodeId, //             节点ID
-        node_name, //          当前异常节点
-        plan_enddate, //       系统计算日期
-        abnormal_reason, //    异常原因
-        is_change, //          是否调整日期
-        is_computed: false, // 是否根据当前节点的时间去计算其他节点
-        is_quote, //           是否被其他节点引用
-        change_plan_time, //   调整后日期
-        change_remaark, //     调整/异常原因
-        max_plant_enddate, //  日期最大值
-        min_plant_enddate //   日期最小值
+        index, //               行索引
+        order_time, //          下单日期
+        deliver_date, //        客人交期
+        title: '审批调整', //    弹出层标题
+        nodeId, //              节点ID
+        error, //               是否报错
+        node_name, //           当前异常节点
+        nodeName, //            节点名称
+        plan_enddate, //        系统计算时间
+        time, //                当前日期
+        verification_remark, // 异常原因
+        max_plant_enddate, //   日期最大值
+        min_plant_enddate, //   日期最小值
+        is_change, //           是否调整日期
+        isComputedOther, //     是否根据当前节点的时间去计算其他节点
+        is_quote, //            是否被其他节点引用
+        change_plan_time, //    调整后日期
+        change_remaark //       调整/异常原因
       }
       this.d_data = d_data
       this.dialogVisible = true
     },
     /**
-     * [保存]
+     * [弹出层：是否调整日期]
+     */
+    isChangeTime(event) {
+      if (event === 0) {
+        this.d_data.isComputedOther = false
+        this.blur_dialog('plan_enddate')
+      }
+    },
+    /**
+     * [弹出层：日期失焦]
+     * @param {[String]} name 属性名 { change_plan_time: '调整，日期失焦', plan_enddate: '不调整，日期还原' }
+     */
+    blur_dialog(name) {
+      const { d_data } = this
+      const { max_plant_enddate, min_plant_enddate, order_time, deliver_date, is_quote } = d_data
+      const time = Tool._toggleTime(d_data[name])
+      const { status } = Tool._isError(max_plant_enddate, min_plant_enddate, time, order_time, deliver_date)
+      this.d_data.time = time
+      this.d_data.error = (is_quote === 1 && time === '/') ? true : status
+      this.d_data.change_plan_time = name === 'change_plan_time' ? time : ''
+    },
+    /**
+     * [弹出层：保存]
      */
     submit(title) {
       const { d_data, page_list, listIndex, listType } = this
-      const { index, nodeId, change_remaark, is_quote, is_change, is_computed, change_plan_time, plan_enddate } = d_data
-      if (!change_remaark) {
-        /* 报错：没写'调整/异常原因 后再保存' */
-        this.$message({ message: '请填写调整/异常原因', type: 'warning' })
-      } else if (is_change === 1 && is_quote === 1 && (!change_plan_time || change_plan_time === '/' || isNaN(new Date(change_plan_time).getTime()))) {
-        /* 报错：变更，被引用，没选调整后日期 */
-        this.$message({ message: '此节点被其他节点引用，请填写正确的 调整后日期 后再保存', type: 'warning' })
-      } else if (plan_enddate === change_plan_time) {
-        /* 报错：系统计算日期 === 调整后日期 */
-        this.$message({ message: '系统计算日期 不能等于 调整后日期', type: 'warning' })
-      } else {
-        const change_plan_time = is_change === 0 ? '' : this._toggleTime(d_data.change_plan_time) // 不调整：调整后日期为空
-        const time = this._getTime()
-        const { employeename } = this
-        const text = `${time}，${employeename}调整为${change_plan_time},原因：${change_remaark}`
-        page_list[listIndex].tableData[index - 2][nodeId].final_audit_plan_enddate = change_plan_time // 审核调整最终计划完成时间
-        page_list[listIndex].tableData[index - 2][nodeId].audit_process_record = text //                 审核过程记录
-        page_list[listIndex].tableData[index - 2][nodeId].is_change = is_change //                       是否调整日期
-        page_list[listIndex].tableData[index - 2][nodeId].time = change_plan_time //                     展示时间
-        page_list[listIndex].tableData[index - 2][nodeId].timeType = 2
-        this.dialogVisible = false
-        this.$store.commit('saveData', { name: 'is_computed', obj: is_computed })
-        this.$store.commit('saveData', { name: 'is_computed_id', obj: nodeId })
-        this.$store.commit('saveData', { name: 'computed_index', obj: index - 2 })
-        this.$store.commit('saveData', { name: 'computed_tab', obj: listType })
-        this.$store.commit('saveData', { name: 'isComputed', obj: new Date().getTime() })
+      const { index, error, nodeId, time, change_plan_time, change_remaark, is_change, is_quote, isComputedOther, nodeName, plan_enddate } = d_data
+      /* 报错：报错 && 没写'调整/异常原因' */
+      if (error && !change_remaark) {
+        this.$message({ showClose: true, message: '请填写 调整/异常原因 后再保存', type: 'warning' })
+        return false
       }
+      /* 报错：变更 && 被引用 && （时间 === '' || 时间 === '/'） */
+      if (is_change === 1 && is_quote === 1 && (change_plan_time === '' || change_plan_time === '/')) {
+        this.$message({ showClose: true, message: '此节点被其他节点引用，不能为空或/', type: 'warning' })
+        return false
+      }
+      /* 报错：变更 && （没写时间 || 系统计算时间 === 当前时间） */
+      if (is_change === 1 && (!change_plan_time || plan_enddate === change_plan_time)) {
+        this.$message({ showClose: true, message: '请修改 调整日期 后再保存', type: 'warning' })
+        return false
+      }
+      /* ----- 保存 ----- */
+      const _getTime = this._getTime()
+      const { employeename } = this
+      const node = page_list[listIndex].tableData[index - 2][nodeId]
+      node.time = change_plan_time //                     展示时间
+      node.final_audit_plan_enddate = change_plan_time // 审核调整最终计划完成时间
+      node.is_change = is_change //                       是否调整日期
+      node.isComputedOther = isComputedOther //           是否根据当前节点的时间去计算其他节点
+      node.error = error
+      node.timeType = 2
+      if (is_change === 0) {
+        node.time = time
+        node.final_audit_plan_enddate = ''
+        if (change_remaark) {
+          node.audit_process_record = `${_getTime}，${employeename}未调整时间,原因：${change_remaark}` // 审核过程记录
+        }
+      } else if (is_change === 1) {
+        if (change_remaark) {
+          node.audit_process_record = `${_getTime}，${employeename}调整为${change_plan_time},原因：${change_remaark}` // 审核过程记录
+        }
+      }
+      this.$store.commit('saveData', { name: 'is_computed', obj: isComputedOther })
+      this.$store.commit('saveData', { name: 'changeIndexId', obj: `${index - 2}_${nodeId}_${nodeName}` })
+      this.$store.commit('saveData', { name: 'computed_tab', obj: listType })
+      this.$store.commit('saveData', { name: 'isComputed', obj: new Date().getTime() })
+      this.dialogVisible = false
     },
     /**
      * [表格：合并行]
@@ -286,61 +349,6 @@ export default {
       const month = d.getMonth() + 1 < 10 ? '0' + (d.getMonth() + 1) : d.getMonth() + 1
       const day = d.getDate() < 10 ? '0' + d.getDate() : d.getDate()
       return `${year}-${month}-${day}`
-    },
-    /**
-     * [转换：年年年年-月月-日日]
-     * @param {[String]} time 输入的日期格式字符串
-     */
-    _toggleTime(time) {
-      if (time === '/') {
-        return time
-      } if (time) {
-        const [three, two, one] = time.split(/[-//.]/g).reverse()
-        /* 处理：年 */
-        let year = parseInt(new Date().getFullYear()) // 年 {[Int]}
-        if (!isNaN(parseInt(one))) {
-          const str = String(one).trim()
-          year = parseInt(String(year).slice(0, -1 * str.length) + str)
-        }
-        /* 处理：月 */
-        let addYear = 0 // 增加的年份 {[Int]}
-        let month = isNaN(parseInt(two)) ? 1 : parseInt(two) // 月 {[Int]}
-        for (let i = 0; ; i++) {
-          if (month > 12) {
-            addYear++
-            month -= 12
-          } else {
-            break
-          }
-        }
-        year = year + addYear
-        /* 处理：日 */
-        let year_2 = month < 12 ? year : year + 1
-        let month_2 = month < 12 ? month + 1 : month + 1 - 12
-        let day = isNaN(parseInt(three)) ? 1 : parseInt(three) // 日 {[Int]}
-        for (let i = 0; ; i++) {
-          const maxDay = new Date(new Date(`${year_2}-${month_2}`).getTime() - 1000 * 60 * 60 * 24).getDate()
-          if (day > maxDay) {
-            day -= maxDay
-            month++
-            month_2++
-            if (month > 12) {
-              month -= 12
-              year += 1
-              year_2 += 1
-            }
-            if (month_2 > 12) {
-              month_2 -= 12
-            }
-          } else {
-            break
-          }
-        }
-        /* 整合 */
-        return `${year}-${'00'.slice(0, -1 * String(month).length) + month}-${'00'.slice(0, -1 * String(day).length) + day}`
-      } else {
-        return ''
-      }
     }
   }
 }
@@ -423,5 +431,11 @@ export default {
 /*** 弹出层 ***/
 .comDialog > .el-dialog > .el-dialog__body {
   padding: 10px 20px !important;
+}
+
+/*** 输入框：报错 ***/
+.errorInput > input {
+  color: #F56C6C !important;
+  border-color: #F56C6C !important;
 }
 </style>

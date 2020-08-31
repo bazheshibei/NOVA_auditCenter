@@ -16,13 +16,6 @@ const url = {
   '提交': 'itemGanttAuditSaveAction.ndo?action=auditItemSummary'
 }
 
-/**
- * [请求接口时，如果需要 loading 效果时，显示的文字]
- */
-// const Loading = {
-//   '下单接口': '下单中...'
-// }
-
 const request = function (param) {
   param.path = host + url[param.name]
   Axios(param)
