@@ -82,48 +82,48 @@ const store = new Vuex.Store({
      * @localStorage {[gantt_audit_id]} '4028883c74042f1e017404480344000f'
      */
     A_getItemGanttData({ state }) {
-      const data = JSON.parse(localStorage.getItem('审核中心：审核列表'))
-      // console.log(data)
-      /* ----- 处理数据 ----- */
-      const { itemSummaryItemData, itemGanttSummaryDatd, employeename, item_name, item_id } = data
-      /* 顶部数据 */
-      state.itemSummaryItemData = Tool.returnTopData(itemSummaryItemData)
-      state.itemGanttSummaryDatd = itemGanttSummaryDatd
-      state.employeename = employeename
-      state.item_name = item_name
-      state.item_id = item_id
-      /* 表格 */
-      const { arr, nodeObj } = Tool.returnDatalist(itemGanttSummaryDatd)
-      // console.log('arr ----- ', arr)
-      state.page_list = arr
-      state.nodeObj = nodeObj
+      // const data = JSON.parse(localStorage.getItem('审核中心：审核列表'))
+      // // console.log(data)
+      // /* ----- 处理数据 ----- */
+      // const { itemSummaryItemData, itemGanttSummaryDatd, employeename, item_name, item_id } = data
+      // /* 顶部数据 */
+      // state.itemSummaryItemData = Tool.returnTopData(itemSummaryItemData)
+      // state.itemGanttSummaryDatd = itemGanttSummaryDatd
+      // state.employeename = employeename
+      // state.item_name = item_name
+      // state.item_id = item_id
+      // /* 表格 */
+      // const { arr, nodeObj } = Tool.returnDatalist(itemGanttSummaryDatd)
+      // // console.log('arr ----- ', arr)
+      // state.page_list = arr
+      // state.nodeObj = nodeObj
 
-      // const { gantt_audit_id } = JSON.parse(localStorage.getItem('NOVA_itemGanttAuditBatch') || '{}')
-      // const name = '甘特表提报审核页面'
-      // // const obj = { gantt_audit_id: '8a8a806273ec6b4a0173ec76f3d50019' }
-      // const obj = { gantt_audit_id }
-      // const suc = function (res) {
-      //   // localStorage.setItem('审核中心：审核列表', JSON.stringify(res.data))
-      //   // console.log('审核列表 ----- ', res.data)
-      //   //
-      //   const { data, msg, status } = res
-      //   if (String(status) === '0') {
-      //     MessageBox({ title: '数据异常', message: msg, type: 'warning', closeOnClickModal: false, closeOnPressEscape: false })
-      //   } else {
-      //     const { itemSummaryItemData, itemGanttSummaryDatd, employeename, item_name, item_id } = data
-      //     /* 顶部数据 */
-      //     state.itemSummaryItemData = Tool.returnTopData(itemSummaryItemData)
-      //     state.itemGanttSummaryDatd = itemGanttSummaryDatd
-      //     state.employeename = employeename
-      //     state.item_name = item_name
-      //     state.item_id = item_id
-      //     /* 表格 */
-      //     const { arr, nodeObj } = Tool.returnDatalist(itemGanttSummaryDatd)
-      //     state.page_list = arr
-      //     state.nodeObj = nodeObj
-      //   }
-      // }
-      // Api({ name, obj, suc })
+      const { gantt_audit_id } = JSON.parse(localStorage.getItem('NOVA_itemGanttAuditBatch') || '{}')
+      const name = '甘特表提报审核页面'
+      // const obj = { gantt_audit_id: '8a8a806273ec6b4a0173ec76f3d50019' }
+      const obj = { gantt_audit_id }
+      const suc = function (res) {
+        // localStorage.setItem('审核中心：审核列表', JSON.stringify(res.data))
+        // console.log('审核列表 ----- ', res.data)
+        //
+        const { data, msg, status } = res
+        if (String(status) === '0') {
+          MessageBox({ title: '数据异常', message: msg, type: 'warning', closeOnClickModal: false, closeOnPressEscape: false })
+        } else {
+          const { itemSummaryItemData, itemGanttSummaryDatd, employeename, item_name, item_id } = data
+          /* 顶部数据 */
+          state.itemSummaryItemData = Tool.returnTopData(itemSummaryItemData)
+          state.itemGanttSummaryDatd = itemGanttSummaryDatd
+          state.employeename = employeename
+          state.item_name = item_name
+          state.item_id = item_id
+          /* 表格 */
+          const { arr, nodeObj } = Tool.returnDatalist(itemGanttSummaryDatd)
+          state.page_list = arr
+          state.nodeObj = nodeObj
+        }
+      }
+      Api({ name, obj, suc })
     },
     /**
      * [请求：审核提交]

@@ -193,40 +193,6 @@ Tool.forEachTime = function (page_list, is_computed, changeIndexId, computed_tab
             }
           }
         })
-
-        // tableData.forEach(function (item, index) {
-        //   if (item.count === 3) {
-        //     for (const x in item) {
-        //       const node = item[x]
-        //       if (node instanceof Object && (node.node_id || node.node_code)) {
-        //         let max = node.max_plant_enddate
-        //         let min = node.min_plant_enddate
-        //         /* 重新计算时间：指定行 */
-        //         if (index === itemIndex) {
-        //           const { max_section_value, min_section_value, sys_clac_formula } = node
-        //           if (x !== nodeId) {
-        //             const self = that._returnTime(sys_clac_formula, nodeCodeObj)
-        //             if (self !== node.time) {
-        //               node.time = self
-        //               node.audit_process_record = status ? `${nodeName} 节点变更后，重新计算` : ''
-        //             }
-        //           }
-        //           max = that._returnTime(max_section_value, nodeCodeObj)
-        //           min = that._returnTime(min_section_value, nodeCodeObj)
-        //           node.max_plant_enddate = max
-        //           node.min_plant_enddate = min
-        //           node.maxMinText = `最早：${min}，最晚：${max}`
-        //         }
-        //         /** 验证：计划时间是否在区间内 **/
-        //         const { status: errorStatus } = that._isError(max, min, node.time, order_time, deliver_date)
-        //         node.error = errorStatus
-        //         if (errorStatus) {
-        //           errorNum++
-        //         }
-        //       }
-        //     }
-        //   }
-        // })
         tab.errorNum = errorNum
       }
     })
@@ -505,6 +471,7 @@ Tool._getData = function (tabData) {
   const node_gantt_type_obj = { [gantt_type]: { nodeObj_1, nodeObj_2 } }
   return { tab, node_gantt_type_obj }
 }
+
 /**
  * [公式 转 时间]
  * @param {[String]} str         公式

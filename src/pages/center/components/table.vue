@@ -423,11 +423,6 @@ export default {
 </style>
 
 <style>
-/*** 弹出气泡 ***/
-.el-popover {
-  max-width: 400px !important;
-}
-
 /*** 弹出层 ***/
 .comDialog > .el-dialog > .el-dialog__body {
   padding: 10px 20px !important;

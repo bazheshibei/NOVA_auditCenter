@@ -63,7 +63,7 @@ module.exports = {
 
     // Paths
     assetsRoot: path.resolve(__dirname, '../itemganttaudit'),
-    assetsSubDirectory: 'static',
+    assetsSubDirectory: 'itemGanttAuditBatch',
     assetsPublicPath: '/nova/pages/itemganttaudit/',
 
     /**
