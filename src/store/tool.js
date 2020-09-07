@@ -173,7 +173,7 @@ Tool.forEachTime = function (page_list, is_computed, changeIndexId, computed_tab
                 const { node_code } = tabData[nodeId]
                 /* 引用到此节点的其他节点：重新计算 */
                 const { sys_clac_formula, max_section_value, min_section_value } = node
-                if (sys_clac_formula.indexOf(node_code) > 0) { // 引用了此节点
+                if (sys_clac_formula.indexOf('${' + node_code + '}') > 0) { // 引用了此节点
                   const now = that._returnTime(sys_clac_formula, nodeCodeObj)
                   const max = that._returnTime(max_section_value, nodeCodeObj)
                   const min = that._returnTime(min_section_value, nodeCodeObj)
@@ -560,7 +560,7 @@ Tool._toggleTime = function (time) {
  * @param {[String]} minVal       最小值
  * @param {[String]} plantVal     计划时间
  * @param {[String]} order_time   下单日期
- * @param {[String]} deliver_date 交货日期
+ * @param {[String]} deliver_date 客人交期
  */
 Tool._isError = function (maxVal = '', minVal = '', plantVal = '', order_time = '', deliver_date = '') {
   const max = isNaN(new Date(maxVal).getTime()) ? 0 : new Date(maxVal).getTime() //       最大值
@@ -568,33 +568,14 @@ Tool._isError = function (maxVal = '', minVal = '', plantVal = '', order_time = 
   const plant = isNaN(new Date(plantVal).getTime()) ? 0 : new Date(plantVal).getTime() // 计划时间
   const order = new Date(order_time).getTime() //                                         下单日期
   const deliver = new Date(deliver_date).getTime() //                                     客人交期
-  const time_1 = this._returnYearMonthDay(min)
-  const time_2 = this._returnYearMonthDay(max)
-  let maxMinText = `最早：${time_1}，最晚：${time_2}` // 提示文字
-  /* 最大最小值超范围 */
-  const errorTextArr = []
-  if (min < order) {
-    errorTextArr.push('最早时间早于 下单日期')
-  }
-  if (deliver < min) {
-    errorTextArr.push('最早时间晚于 客人交期')
-  }
-  if (max < order) {
-    errorTextArr.push('最晚时间早于 下单日期')
-  }
-  if (deliver < max) {
-    errorTextArr.push('最晚时间晚于 客人交期')
-  }
-  if (errorTextArr.length) {
-    maxMinText += `，${errorTextArr.join('，')}`
-  }
+  const countMax = max || deliver
+  const countMin = min || order
+  const time_1 = this._returnYearMonthDay(countMin)
+  const time_2 = this._returnYearMonthDay(countMax)
+  const maxMinText = `最早：${time_1 === '1970-01-01' ? '未知' : time_1}，最晚：${time_2 === '1970-01-01' ? '未知' : time_2}` // 提示文字
   /* 返回 */
-  if (order <= plant && plant <= deliver) { //             在 下单日期 客人交期 之间
-    if (min && max && (min <= plant && plant <= max)) { // 在 最小值   最大值  之间
-      return { status: false, maxMinText }
-    } else {
-      return { status: true, maxMinText }
-    }
+  if (countMin && countMax && (countMin <= plant && plant <= countMax)) {
+    return { status: false, maxMinText }
   } else {
     return { status: true, maxMinText }
   }

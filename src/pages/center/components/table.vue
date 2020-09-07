@@ -15,7 +15,7 @@
       <!-- 操作 -->
       <el-table-column label="审核" width="220" fixed="left">
         <template slot-scope="scope">
-          <div v-if="scope.row.count > 1 && shenheObj[scope.$index]">
+          <div class="tablePBox" v-if="scope.row.count > 1 && shenheObj[scope.$index]">
             <p class="tableP">
               审核结果：
               <el-radio v-model="shenheObj[scope.$index].type" :label="1" @change="changeEvent('type', $event, scope.$index, scope.row.nextAuditData.nextAuditNode)">通过</el-radio>
@@ -125,7 +125,7 @@
         </div>
         <div class="lineLabel">调整后日期：</div>
         <div class="lineText">
-          <el-input class="comInput" :class="d_data.error && d_data.is_change === 1 ? 'errorInput' : ''" slot="reference" size="mini" placeholder="请输入日期"
+          <el-input class="comTimeInput" :class="d_data.error && d_data.is_change === 1 ? 'errorInput' : ''" slot="reference" size="mini" placeholder="请输入日期" maxlength="10"
             :disabled="d_data.is_change === 0 ? true : false"
             v-model="d_data.change_plan_time" @blur="blur_dialog('change_plan_time')"
           ></el-input>
@@ -364,73 +364,15 @@ export default {
 /*** 表格容器 ***/
 .tableP {
   text-align: left;
+  padding-top: 2px;
+}
+.tablePBox > .tableP:last-child {
+  padding-bottom: 2px;
 }
 .tableInput {
   width: 100%;
 }
 .tableSelect {
   width: 100px;
-}
-.comInput {
-  width: 125px;
-  margin: 2px 0;
-}
-.warningIcon { /* 报错 */
-  color: #F56C6C;
-  font-size: 16px;
-}
-.red {
-  color: #F56C6C;
-}
-.hover {
-  cursor: pointer;
-}
-.editIcon { /* 编辑图标 */
-  color: #409EFF;
-  font-size: 14px;
-}
-
-/*** 弹出层 ***/
-.lineBox {
-  font-size: 12px;
-  border-bottom: 1px solid #E4E7ED;
-  border-left: 1px solid #E4E7ED;
-  display: flex;
-  align-items: center;
-  flex: 1;
-}
-.lineBox:first-child {
-  border-top: 1px solid #E4E7ED;
-}
-.lineLabel {
-  width: 110px;
-  min-width: 110px;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-}
-.lineText {
-  min-height: 35px;
-  padding: 0 6px;
-  border-right: 1px solid #E4E7ED;
-  display: flex;
-  align-items: center;
-  flex: 1;
-}
-.comInput2 {
-  flex: 1;
-}
-</style>
-
-<style>
-/*** 弹出层 ***/
-.comDialog > .el-dialog > .el-dialog__body {
-  padding: 10px 20px !important;
-}
-
-/*** 输入框：报错 ***/
-.errorInput > input {
-  color: #F56C6C !important;
-  border-color: #F56C6C !important;
 }
 </style>

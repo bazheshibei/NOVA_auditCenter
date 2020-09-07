@@ -4,7 +4,7 @@
 <template>
   <div class="recordBox">
     <div class="comTableTitle">
-      <span>历史审核记录</span>
+      <span>【历史审核记录】</span>
     </div>
     <el-table :data="tab_list[listIndex].itemNodeAuditDetail" size="mini" border>
       <el-table-column prop="order_time" label="甘特表类型" width="150">
@@ -33,7 +33,7 @@
           {{audit_result_obj[scope.row.audit_result]}}
         </template>
       </el-table-column>
-      <el-table-column prop="order_time" label="处理意见" width="150">
+      <el-table-column prop="order_time" label="处理意见">
         <template slot-scope="scope">
           {{scope.row.audit_remark}}
         </template>
@@ -70,13 +70,6 @@ export default {
 
 <style scoped>
 .recordBox {
-  flex: 1;
-}
-.comTableTitle {
-  color: #409EFF;
-  font-size: 14px;
-  padding: 10px;
-  background: #ecf5ff;
   flex: 1;
 }
 </style>
