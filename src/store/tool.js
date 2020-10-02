@@ -157,7 +157,7 @@ Tool.forEachTime = function (page_list, is_computed, changeIndexId, computed_tab
                 /* 自身：验证是否报错 */
                 const { node_code, time, max_plant_enddate, min_plant_enddate } = node
                 const { status, maxMinText } = that._isError(max_plant_enddate, min_plant_enddate, time, order_time, deliver_date)
-                node.audit_process_record = status ? node.audit_process_record : ''
+                // node.audit_process_record = status ? node.audit_process_record : ''
                 node.error = status
                 node.maxMinText = maxMinText
                 nodeCodeObj['${' + node_code + '}'] = time
@@ -173,7 +173,7 @@ Tool.forEachTime = function (page_list, is_computed, changeIndexId, computed_tab
                 const { node_code } = tabData[nodeId]
                 /* 引用到此节点的其他节点：重新计算 */
                 const { sys_clac_formula, max_section_value, min_section_value } = node
-                if (sys_clac_formula.indexOf('${' + node_code + '}') > 0) { // 引用了此节点
+                if (sys_clac_formula.indexOf('${' + node_code + '}') > -1) { // 引用了此节点
                   const now = that._returnTime(sys_clac_formula, nodeCodeObj)
                   const max = that._returnTime(max_section_value, nodeCodeObj)
                   const min = that._returnTime(min_section_value, nodeCodeObj)
@@ -186,6 +186,10 @@ Tool.forEachTime = function (page_list, is_computed, changeIndexId, computed_tab
                   node.error = status
                   node.maxMinText = maxMinText
                   if (status) {
+                    errorNum++
+                  }
+                } else { // 没引用此节点
+                  if (node.error) {
                     errorNum++
                   }
                 }
@@ -386,14 +390,13 @@ Tool._getData = function (tabData) {
   itemAuditNode.forEach(function (item) {
     /* 添加属性：本次调整 */
     item.time = item.change_plan_time ? item.change_plan_time : item.plan_enddate // 展示的时间 （变更时间 || 原始时间，后期会变为审批调整时间）
-    item.timeType = 1 //                  未审批调整
-    item.verification_remark = '' //      异常原因：异常原因
-    item.change_plan_time = '' //         异常原因：调整后日期
-    item.change_remaark = '' //           异常原因：调整/异常说明
-    item.frist_plan_time = '' //          异常原因：首次提报日期
-    item.is_change = 0 //                 异常原因：是否调整1是0否
-    item.final_audit_plan_enddate = '' // 审批调整：审核调整最终计划完成时间
-    item.audit_process_record = '' //     审批调整：审核过程记录
+    item.timeType = 1 //                                   未审批调整
+    item.change_plan_time = item.change_plan_time || '' // 异常原因：调整后日期
+    item.change_remaark = '' //                            异常原因：调整/异常说明
+    item.frist_plan_time = '' //                           异常原因：首次提报日期
+    item.is_change = 0 //                                  异常原因：是否调整1是0否
+    item.final_audit_plan_enddate = '' //                  审批调整：审核调整最终计划完成时间
+    item.audit_process_record = '' //                      审批调整：审核过程记录
     item.text = '' //                     审批调整：审核过程记录：初始值
     /* 赋值：表格数据 */
     obj[item.item_node_id] = item
@@ -478,11 +481,31 @@ Tool._getData = function (tabData) {
  * @param {[Object]} nodeCodeObj 当前项目的节点值 { ${变量}: 自身时间 }
  */
 Tool._returnTime = function (str = '', nodeCodeObj = {}) {
-  /* 替换：变量、常量 */
-  const numStr = str.replace(/[0-9]+/g, function (num) {
-    return parseInt(num) * 60 * 60 * 24 * 1000
-  }).replace(/\$\{[\w-_:/]+\}/g, function (name) {
+  const numStr = str.replace(/\$\{[\w-_:/]+\}/g, function (name) {
     return nodeCodeObj[name] ? new Date(nodeCodeObj[name]).getTime() : 0
+  }).replace(/[0-9]+/g, function (num, index) {
+    if (num.length < 13) {
+      let isChange = true
+      let beforeStr = ''
+      let afterStr = ''
+      let numStr = 0
+      if (index !== 0) {
+        beforeStr = str[index - 1]
+      }
+      if (index + num.length !== str.length) {
+        afterStr = str[index + num.length]
+      }
+      if (beforeStr === '*' || beforeStr === '/' || afterStr === '*' || afterStr === '/') {
+        isChange = false
+      }
+      numStr = num
+      if (isChange) {
+        numStr = parseInt(numStr) * 60 * 60 * 24 * 1000
+      }
+      return `${numStr}`
+    } else {
+      return num
+    }
   })
   /* 毫秒数 转 时间 */
   // eslint-disable-next-line
@@ -516,7 +539,7 @@ Tool._toggleTime = function (time) {
     }
     /* 处理：月 */
     let addYear = 0 // 增加的年份 {[Int]}
-    let month = isNaN(parseInt(two)) ? 1 : parseInt(two) // 月 {[Int]}
+    let month = (isNaN(parseInt(two)) || two === '0') ? 1 : parseInt(two) // 月 {[Int]}
     for (let i = 0; ; i++) {
       if (month > 12) {
         addYear++
@@ -529,7 +552,7 @@ Tool._toggleTime = function (time) {
     /* 处理：日 */
     let year_2 = month < 12 ? year : year + 1
     let month_2 = month < 12 ? month + 1 : month + 1 - 12
-    let day = isNaN(parseInt(three)) ? 1 : parseInt(three) // 日 {[Int]}
+    let day = (isNaN(parseInt(three)) || three === '0') ? 1 : parseInt(three) // 日 {[Int]}
     for (let i = 0; ; i++) {
       const maxDay = new Date(new Date(`${year_2}-${month_2}`).getTime() - 1000 * 60 * 60 * 24).getDate()
       if (day > maxDay) {

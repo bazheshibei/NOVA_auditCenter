@@ -79,7 +79,7 @@ const store = new Vuex.Store({
   actions: {
     /**
      * [请求：审核列表]
-     * @localStorage {[gantt_audit_id]} '4028883c74042f1e017404480344000f'
+     * @localStorage {[gantt_audit_id]} '2c9f10b674b9cd400174bf39a37402a8'
      */
     A_getItemGanttData({ state }) {
       // const data = JSON.parse(localStorage.getItem('审核中心：审核列表'))
@@ -93,6 +93,7 @@ const store = new Vuex.Store({
       // state.item_name = item_name
       // state.item_id = item_id
       // /* 表格 */
+      // // console.log(itemGanttSummaryDatd)
       // const { arr, nodeObj } = Tool.returnDatalist(itemGanttSummaryDatd)
       // // console.log('arr ----- ', arr)
       // state.page_list = arr
@@ -100,7 +101,7 @@ const store = new Vuex.Store({
 
       const { gantt_audit_id } = JSON.parse(localStorage.getItem('NOVA_itemGanttAuditBatch') || '{}')
       const name = '甘特表提报审核页面'
-      // const obj = { gantt_audit_id: '8a8a806273ec6b4a0173ec76f3d50019' }
+      // const obj = { gantt_audit_id: '2c9f10b674b9cd400174bf39a37402a8' }
       const obj = { gantt_audit_id }
       const suc = function (res) {
         // localStorage.setItem('审核中心：审核列表', JSON.stringify(res.data))

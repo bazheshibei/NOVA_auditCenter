@@ -6,7 +6,7 @@
 
     <p style="text-align: right; margin-top: -6px; margin-bottom: 4px;">
       <span>异常节点数：{{tab_list[listIndex].errorNum}}</span>&nbsp;&nbsp;
-      <el-tag class="hover" size="mini" @click="isShowAllNodes = !isShowAllNodes">
+      <el-tag class="hover" size="mini" @click="toggleIsShowAllNodes">
         {{isShowAllNodes ? '查看关注节点' : '查看全部节点'}}
       </el-tag>
     </p>
@@ -171,10 +171,9 @@
 import Tool from '../../../store/tool.js'
 import { mapState, mapGetters } from 'vuex'
 export default {
-  props: ['listIndex', 'listType'], // 表格索引, 表格type
+  props: ['listIndex', 'listType', 'isShowAllNodes'], // 表格索引, 表格type, 是否显示：全部节点
   data() {
     return {
-      isShowAllNodes: false, // 是否显示：全部节点
       /* 审核 */
       shenheObj: {},
       /* 弹出层 */
@@ -196,6 +195,13 @@ export default {
     ...mapGetters(['tab_list'])
   },
   methods: {
+    /**
+     * [切换：是否显示全部节点]
+     */
+    toggleIsShowAllNodes() {
+      const { listIndex } = this
+      this.$emit('toggleIsShowAllNodes', { listIndex })
+    },
     /**
      * [审核变更事件]
      * @param {[String]} name  属性名
@@ -314,12 +320,13 @@ export default {
       if (is_change === 0) {
         node.time = time
         node.final_audit_plan_enddate = ''
-        if (change_remaark) {
-          node.audit_process_record = `${_getTime}，${employeename}未调整时间,原因：${change_remaark}` // 审核过程记录
-        }
+        node.audit_process_record = ''
+        // if (change_remaark) {
+        //   node.audit_process_record = `${_getTime}，${employeename}未调整时间,原因：${change_remaark}` // 审核过程记录
+        // }
       } else if (is_change === 1) {
         if (change_remaark) {
-          node.audit_process_record = `${_getTime}，${employeename}调整为${change_plan_time},原因：${change_remaark}` // 审核过程记录
+          node.audit_process_record = `【${_getTime} ${employeename}】变更日期为${change_plan_time}；原因：${change_remaark}` // 审核过程记录
         }
       }
       this.$store.commit('saveData', { name: 'is_computed', obj: isComputedOther })
