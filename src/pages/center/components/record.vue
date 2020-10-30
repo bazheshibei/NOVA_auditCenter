@@ -9,7 +9,7 @@
     <el-table :data="tab_list[listIndex].itemNodeAuditDetail" size="mini" border>
       <el-table-column prop="order_time" label="甘特表类型" width="150">
         <template slot-scope="scope">
-          {{audit_type_obj[scope.row.audit_type]}}
+          {{audit_type_obj[scope.row.audit_type] || tabName}}
         </template>
       </el-table-column>
       <el-table-column prop="order_time" label="项目/工厂信息">
@@ -45,7 +45,7 @@
 <script>
 import { mapGetters } from 'vuex'
 export default {
-  props: ['listIndex'],
+  props: ['listIndex', 'tabName'],
   data() {
     return {
       audit_type_obj: {

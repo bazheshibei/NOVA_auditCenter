@@ -2,10 +2,10 @@
 <!-- 模块：表格 -->
 
 <template>
-  <div class="comTableBox">
+  <div class="comTableBox" v-if="tab_list[listIndex]">
 
     <p style="text-align: right; margin-top: -6px; margin-bottom: 4px;">
-      <span>异常节点数：{{tab_list[listIndex].errorNum}}</span>&nbsp;&nbsp;
+      <span>异常节点数：{{tab_list[listIndex] ? tab_list[listIndex].errorNum : 0}}</span>&nbsp;&nbsp;
       <el-tag class="hover" size="mini" @click="toggleIsShowAllNodes">
         {{isShowAllNodes ? '查看关注节点' : '查看全部节点'}}
       </el-tag>
@@ -56,44 +56,43 @@
       </el-table-column>
 
       <div v-if="nodeObj[listType]">
-        <div v-for="item in nodeObj[listType]" :key="'node_' + item.item_node_id">
-          <el-table-column :label="item.node_name" :column-key="item.item_node_id" width="150" v-if="isShowAllNodes || (!isShowAllNodes && item.is_audit_follow === 1)">
+        <div v-for="item in nodeObj[listType]" :key="'node_' + item.node_id">
+          <el-table-column :label="item.node_name" :column-key="item.node_id" width="150" v-if="isShowAllNodes || (!isShowAllNodes && item.is_audit_follow === 1)">
             <template slot-scope="scope">
-              <div v-if="scope.row[item.item_node_id]">
+              <div v-if="scope.row[item.node_id]">
                 <!-- 计划完成 -->
                 <div v-if="scope.row.rowType === 1">
-                  <!-- {{scope.row[item.item_node_id].is_quote}}
-                  <br>
-                  {{scope.row[item.item_node_id].node_code}}
-                  <br>
-                  {{scope.row[item.item_node_id].sys_clac_formula}} -->
+                  <!-- <p>{{scope.row[item.node_id].node_id}}</p>
+                  <br> -->
                   <!-- 计划完成：异常 -->
-                  <div v-if="scope.row[item.item_node_id].error">
-                    <el-popover popper-class="comPopover" :visible-arrow="false" placement="top" trigger="hover" :content="'提报日期：' + scope.row[item.item_node_id].plan_enddate">
+                  <div v-if="scope.row[item.node_id].error">
+                    <el-popover popper-class="comPopover" :visible-arrow="false" placement="top" trigger="hover" :content="'提报日期：' + scope.row[item.node_id].plan_enddate">
                       <span slot="reference">
-                        <span class="red">{{scope.row[item.item_node_id].time}}</span>
+                        <span class="red">{{scope.row[item.node_id].time}}</span>
                         <i class="el-icon-warning warningIcon"></i>
                       </span>
                     </el-popover>
                   </div>
                   <!-- 计划完成：正常 -->
-                  <div v-if="!scope.row[item.item_node_id].error">
-                    <el-popover popper-class="comPopover" :visible-arrow="false" placement="top" trigger="hover" :content="'提报日期：' + scope.row[item.item_node_id].plan_enddate">
+                  <div v-if="!scope.row[item.node_id].error">
+                    <el-popover popper-class="comPopover" :visible-arrow="false" placement="top" trigger="hover" :content="'提报日期：' + scope.row[item.node_id].plan_enddate">
                       <span slot="reference">
-                        <span :style="scope.row[item.item_node_id].timeType === 2 ? 'color: #E6A23C' : ''">{{scope.row[item.item_node_id].time}}</span>
+                        <span :style="scope.row[item.node_id].timeType === 2 ? 'color: #E6A23C' : ''">{{scope.row[item.node_id].time}}</span>
                       </span>
                     </el-popover>
                   </div>
                 </div>
                 <!-- 本次调整 -->
                 <div v-else-if="scope.row.rowType === 2" style="text-align: left;">
-                  <p v-if="scope.row[item.item_node_id].change_remaark">调整后：{{scope.row[item.item_node_id].change_plan_time || '未调整'}}</p>
-                  <p v-if="scope.row[item.item_node_id].change_remaark">原因：{{scope.row[item.item_node_id].change_remaark}}</p>
+                  <p v-if="scope.row[item.node_id].change_remaark">调整后：{{scope.row[item.node_id].change_plan_time || '未调整'}}</p>
+                  <p v-if="scope.row[item.node_id].change_remaark">原因：{{scope.row[item.node_id].change_remaark}}</p>
                 </div>
                 <!-- 审批调整 -->
-                <div v-else-if="scope.row.rowType === 3" @click="edit(scope.$index, scope.row, item)">
-                  <p v-if="scope.row[item.item_node_id].audit_process_record" style="text-align: left;">{{scope.row[item.item_node_id].audit_process_record}}</p>
-                  <i class="el-icon-edit-outline editIcon hover"></i>
+                <div v-else-if="scope.row.rowType === 3">
+                  <div v-if="scope.row[item.node_id].audit_process_record" style="text-align: left;">
+                    <p v-for="(val, key) in scope.row[item.node_id].audit_process_record" :key="'text_' + key">{{val}}</p>
+                  </div>
+                  <i class="el-icon-edit-outline editIcon hover" @click="edit(scope.$index, scope.row, item)"></i>
                 </div>
               </div>
               <span v-else>--</span>
@@ -236,10 +235,11 @@ export default {
       // console.log(row, nodeData)
       const { itemSummaryItemData: { order_time, deliver_date }, item_name } = this // 下单时间，客人交期,项目名称
       const { short_name } = row // 工厂名称
-      const { item_node_id: nodeId, node_name: nodeName } = nodeData // 节点ID，节点名称
-      const { error, time, audit_process_record, is_change, isComputedOther = false, is_quote, final_audit_plan_enddate: change_plan_time, verification_remark, max_plant_enddate, min_plant_enddate, plan_enddate } = row[nodeId]
+      const { node_id: nodeId, node_name: nodeName } = nodeData // 节点ID，节点名称
+      const { pageTime, timeType, error, time, text, audit_process_record, is_change, isComputedOther = false, is_quote, final_audit_plan_enddate: change_plan_time, verification_remark, max_plant_enddate, min_plant_enddate, plan_enddate } = row[nodeId]
       const node_name = short_name ? [item_name, short_name, nodeName].join(' > ') : [item_name, nodeName].join(' > ')
-      const change_remaark = audit_process_record.split('原因：')[1] || ''
+      const length = audit_process_record.length
+      const change_remaark = timeType === 2 ? audit_process_record[length - 1].split('原因：')[1] : ''
       /* 赋值 */
       const d_data = {
         index, //               行索引
@@ -252,6 +252,8 @@ export default {
         nodeName, //            节点名称
         plan_enddate, //        系统计算时间
         time, //                当前日期
+        pageTime,
+        text,
         verification_remark, // 异常原因
         max_plant_enddate, //   日期最大值
         min_plant_enddate, //   日期最小值
@@ -270,7 +272,7 @@ export default {
     isChangeTime(event) {
       if (event === 0) {
         this.d_data.isComputedOther = false
-        this.blur_dialog('plan_enddate')
+        this.blur_dialog('pageTime')
       }
     },
     /**
@@ -320,13 +322,11 @@ export default {
       if (is_change === 0) {
         node.time = time
         node.final_audit_plan_enddate = ''
-        node.audit_process_record = ''
-        // if (change_remaark) {
-        //   node.audit_process_record = `${_getTime}，${employeename}未调整时间,原因：${change_remaark}` // 审核过程记录
-        // }
+        node.audit_process_record.length = node.text.length
+        node.timeType = 1
       } else if (is_change === 1) {
         if (change_remaark) {
-          node.audit_process_record = `【${_getTime} ${employeename}】变更日期为${change_plan_time}；原因：${change_remaark}` // 审核过程记录
+          node.audit_process_record.push(`【${_getTime} ${employeename}】变更日期为${change_plan_time}；原因：${change_remaark}`) // 审核过程记录
         }
       }
       this.$store.commit('saveData', { name: 'is_computed', obj: isComputedOther })

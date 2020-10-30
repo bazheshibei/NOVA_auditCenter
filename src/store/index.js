@@ -4,7 +4,7 @@ import Vue from 'vue'
 import Vuex from 'vuex'
 import Api from '@/config/api'
 import Tool from './tool.js'
-import { MessageBox } from 'element-ui'
+import { MessageBox, Loading } from 'element-ui'
 Vue.use(Vuex)
 
 const store = new Vuex.Store({
@@ -83,7 +83,7 @@ const store = new Vuex.Store({
      */
     A_getItemGanttData({ state }) {
       // const data = JSON.parse(localStorage.getItem('审核中心：审核列表'))
-      // // console.log(data)
+      // // console.log('审核中心：审核列表 ----- ', data)
       // /* ----- 处理数据 ----- */
       // const { itemSummaryItemData, itemGanttSummaryDatd, employeename, item_name, item_id } = data
       // /* 顶部数据 */
@@ -93,15 +93,12 @@ const store = new Vuex.Store({
       // state.item_name = item_name
       // state.item_id = item_id
       // /* 表格 */
-      // // console.log(itemGanttSummaryDatd)
       // const { arr, nodeObj } = Tool.returnDatalist(itemGanttSummaryDatd)
-      // // console.log('arr ----- ', arr)
       // state.page_list = arr
       // state.nodeObj = nodeObj
 
-      const { gantt_audit_id } = JSON.parse(localStorage.getItem('NOVA_itemGanttAuditBatch') || '{}')
+      const { gantt_audit_id = '2c9f10b6750b5d710175109c6c9204c5' } = JSON.parse(localStorage.getItem('NOVA_itemGanttAuditBatch') || '{}')
       const name = '甘特表提报审核页面'
-      // const obj = { gantt_audit_id: '2c9f10b674b9cd400174bf39a37402a8' }
       const obj = { gantt_audit_id }
       const suc = function (res) {
         // localStorage.setItem('审核中心：审核列表', JSON.stringify(res.data))
@@ -124,7 +121,7 @@ const store = new Vuex.Store({
           state.nodeObj = nodeObj
         }
       }
-      Api({ name, obj, suc })
+      Api({ name, obj, suc, loading: '数据加载中...' })
     },
     /**
      * [请求：审核提交]
@@ -146,11 +143,15 @@ const store = new Vuex.Store({
           if (String(status) === '0') {
             MessageBox({ title: '数据异常', message: msg, type: 'warning', closeOnClickModal: false, closeOnPressEscape: false })
           } else {
-            // eslint-disable-next-line
-            dg.close()
+            const loading = Loading.service({ text: '提交成功', spinner: 'el-icon-circle-check' })
+            setTimeout(() => {
+              loading.close()
+              // eslint-disable-next-line
+              dg.close()
+            }, 1000)
           }
         }
-        Api({ name, obj, suc })
+        Api({ name, obj, suc, loading: '提交审核中...' })
         // console.log(name, obj, suc)
       }
     }

@@ -63,7 +63,7 @@ Tool.returnDatalist = function (itemGanttSummaryDatd) {
           if (nodeObj[x][y][z] && nodeObj[x][y][z].is_audit_follow === 1) {
             //
           } else {
-            nodeObj[x][y][z] = node
+            nodeObj[x][y][node.node_id] = node
           }
         }
       }
@@ -129,8 +129,8 @@ Tool.returnDatalist = function (itemGanttSummaryDatd) {
 Tool.forEachTime = function (page_list, is_computed, changeIndexId, computed_tab, order_time, deliver_date, state) {
   const that = this
   if (is_computed) {
-    const [itemIndex, nodeId, nodeName] = changeIndexId.split('_')
     /* ----- 重新计算各节点日期 ----- */
+    const [itemIndex, nodeId, nodeName] = changeIndexId.split('_')
     page_list.map(function (tab) {
       if (tab.gantt_type === computed_tab) { // 当前 tab
         const { tableData = [] } = tab
@@ -295,13 +295,14 @@ Tool._returnData_3 = function (tab = {}) {
         const node = table[x]
         if (node instanceof Object && (node.node_id || node.node_code)) {
           /* 添加数据 */
-          const { item_gantt_id, item_gantt_detail_id, item_node_id, time: final_audit_plan_enddate, audit_process_record, plan_enddate, node_code, text } = node
-          const auditText = audit_process_record.split('原因：')[1]
-          /* 提交：改变过的节点 ((初始时间 !== 当前时间 && 有当前时间) || (现在异常原因 !== 原先异常原因 && 有现在异常原因)) */
-          if ((plan_enddate !== final_audit_plan_enddate && final_audit_plan_enddate) || (auditText !== text && auditText)) {
-            const nodeData = { item_node_id, final_audit_plan_enddate, audit_process_record: audit_process_record.split('原因：')[1], plan_enddate, node_code }
-            obj.item_gantt_id = item_gantt_id
-            obj.item_gantt_detail_id = item_gantt_detail_id
+          const { item_gantt_id, item_gantt_detail_id, item_node_id, time: final_audit_plan_enddate, audit_process_record, plan_enddate, pageTime, node_code, text } = node
+          const auditLength = audit_process_record.length
+          obj.item_gantt_id = item_gantt_id
+          obj.item_gantt_detail_id = item_gantt_detail_id
+          /* 提交：改变过的节点 ((页面初始时间 !== 当前时间 && 有当前时间) || (现在异常原因 !== 原先异常原因 && 有现在异常原因)) */
+          if ((pageTime !== final_audit_plan_enddate && final_audit_plan_enddate) || (auditLength !== text.length && auditLength)) {
+            const auditText = audit_process_record[auditLength - 1].split('原因：')[1]
+            const nodeData = { item_node_id, final_audit_plan_enddate, audit_process_record: auditText, plan_enddate, node_code }
             obj.nodeData.push(nodeData)
           }
           /* 报错 */
@@ -338,8 +339,8 @@ Tool._returnData_1 = function (tab = {}) {
         const node = table[x]
         if (node instanceof Object && (node.node_id || node.node_code)) {
           /* 添加数据 */
-          const { item_gantt_id, item_gantt_detail_id, item_node_id, time: final_audit_plan_enddate, audit_process_record, plan_enddate, node_code, text } = node
-          const auditText = audit_process_record.split('原因：')[1]
+          const { item_gantt_id, item_gantt_detail_id, item_node_id, time: final_audit_plan_enddate, audit_process_record, plan_enddate, pageTime, node_code, text } = node
+          const auditLength = audit_process_record.length
           if (!obj[item_gantt_detail_id]) {
             obj[item_gantt_detail_id] = {}
           }
@@ -347,8 +348,9 @@ Tool._returnData_1 = function (tab = {}) {
             obj[item_gantt_detail_id][tableIndex] = Object.assign({}, data, data_2, { nodeData: [] })
           }
           obj[item_gantt_detail_id][tableIndex] = Object.assign({}, obj[item_gantt_detail_id][tableIndex], { item_gantt_id, item_gantt_detail_id, gantt_audit_id: nodeAuditids[item_gantt_detail_id] })
-          if ((plan_enddate !== final_audit_plan_enddate && final_audit_plan_enddate) || (auditText !== text && auditText)) {
-            /* 提交：改变过的节点 ((初始时间 !== 当前时间 && 有当前时间) || (现在异常原因 !== 原先异常原因 && 有现在异常原因)) */
+          /* 提交：改变过的节点 ((页面初始时间 !== 当前时间 && 有当前时间) || (现在异常原因 !== 原先异常原因 && 有现在异常原因)) */
+          if ((pageTime !== final_audit_plan_enddate && final_audit_plan_enddate) || (auditLength !== text.length && auditLength)) {
+            const auditText = audit_process_record[auditLength - 1].split('原因：')[1]
             const nodeData = { item_node_id, final_audit_plan_enddate, audit_process_record: auditText, plan_enddate, node_code }
             obj[item_gantt_detail_id][tableIndex].nodeData.push(nodeData)
           }
@@ -389,23 +391,24 @@ Tool._getData = function (tabData) {
   const { itemAuditNode = [] } = tabData
   itemAuditNode.forEach(function (item) {
     /* 添加属性：本次调整 */
-    item.time = item.change_plan_time ? item.change_plan_time : item.plan_enddate // 展示的时间 （变更时间 || 原始时间，后期会变为审批调整时间）
-    item.timeType = 1 //                                   未审批调整
-    item.change_plan_time = item.change_plan_time || '' // 异常原因：调整后日期
-    item.change_remaark = '' //                            异常原因：调整/异常说明
-    item.frist_plan_time = '' //                           异常原因：首次提报日期
-    item.is_change = 0 //                                  异常原因：是否调整1是0否
-    item.final_audit_plan_enddate = '' //                  审批调整：审核调整最终计划完成时间
-    item.audit_process_record = '' //                      审批调整：审核过程记录
+    item.timeType = 1 //                  未审批调整：1 时间颜色正常， 2 时间黄色
+    item.change_plan_time = '' //         异常原因：调整后日期
+    item.change_remaark = '' //           异常原因：调整/异常说明
+    item.frist_plan_time = '' //          异常原因：首次提报日期
+    item.is_change = 0 //                 异常原因：是否调整1是0否
+    item.final_audit_plan_enddate = '' // 审批调整：审核调整最终计划完成时间
+    item.audit_process_record = '' //     审批调整：审核过程记录
+    item.time = item.plan_enddate //      展示的时间
+    item.pageTime = item.plan_enddate //  展示的时间：初始值
     item.text = '' //                     审批调整：审核过程记录：初始值
     /* 赋值：表格数据 */
     obj[item.item_node_id] = item
     /* 节点分类 */
-    const { item_node_id, node_name, is_audit_follow } = item
+    const { item_node_id, node_id, node_name, is_audit_follow } = item
     if (is_audit_follow === 1) {
-      nodeObj_1[item_node_id] = { item_node_id, node_name, is_audit_follow }
+      nodeObj_1[item_node_id] = { item_node_id, node_id, node_name, is_audit_follow }
     } else if (is_audit_follow === 0) {
-      nodeObj_2[item_node_id] = { item_node_id, node_name, is_audit_follow }
+      nodeObj_2[item_node_id] = { item_node_id, node_id, node_name, is_audit_follow }
     }
   })
   /* ----- 返回：历史审核记录 ----- */
@@ -429,6 +432,7 @@ Tool._getData = function (tabData) {
     obj[item.item_node_id].is_change = item.is_change //                     是否调整1是0否
     if (item.change_plan_time) {
       obj[item.item_node_id].time = item.change_plan_time
+      obj[item.item_node_id].pageTime = item.change_plan_time
     }
   })
   /* ----- 合并：审批调整 ----- */
@@ -437,9 +441,13 @@ Tool._getData = function (tabData) {
     if (!obj[item.item_node_id]) {
       obj[item.item_node_id] = {}
     }
-    obj[item.item_node_id].final_audit_plan_enddate = item.final_audit_plan_enddate // 审核调整最终计划完成时间
-    obj[item.item_node_id].audit_process_record = item.audit_process_record //         审核过程记录
-    obj[item.item_node_id].text = item.audit_process_record //                         审核过程记录：初始值
+    obj[item.item_node_id].final_audit_plan_enddate = item.final_audit_plan_enddate //         审核调整最终计划完成时间
+    obj[item.item_node_id].audit_process_record = item.audit_process_record.split('<br />') // 审核过程记录
+    obj[item.item_node_id].text = item.audit_process_record.split('<br />') //                 审核过程记录：初始值
+    if (item.final_audit_plan_enddate) {
+      obj[item.item_node_id].time = item.final_audit_plan_enddate
+      obj[item.item_node_id].pageTime = item.final_audit_plan_enddate
+    }
   })
   /* ----- 合并：大货获取gantt_audit_id ----- */
   const { nodeAuditids = {} } = tabData
@@ -450,13 +458,22 @@ Tool._getData = function (tabData) {
   /* ----- 添加数据：表格 ----- */
   const { is_thread, is_audit } = tabData // 是否主线, 是否需要审核
   const tableData = [] // 表格数组
+  const obj_nodeId = {} // 将节点对象改为：node_id 为索引的对象
+  for (const x in obj) {
+    const { node_id } = obj[x]
+    if (node_id) {
+      obj_nodeId[node_id] = obj[x]
+    } else {
+      obj_nodeId[x] = obj[x]
+    }
+  }
   if (is_thread === '1' || is_audit === 0) {
     /* 主线 || 不需要审核 */
-    tableData.unshift(Object.assign({}, obj, { short_name, rowType: 1, count: 1, is_thread }))
+    tableData.unshift(Object.assign({}, obj_nodeId, { short_name, rowType: 1, count: 1, is_thread }))
   } else {
-    tableData.push(Object.assign({}, obj, { short_name, rowType: 1, count: 3 }))
-    tableData.push(Object.assign({}, obj, { short_name, rowType: 2 }))
-    tableData.push(Object.assign({}, obj, { short_name, rowType: 3 }))
+    tableData.push(Object.assign({}, obj_nodeId, { short_name, rowType: 1, count: 3 }))
+    tableData.push(Object.assign({}, obj_nodeId, { short_name, rowType: 2 }))
+    tableData.push(Object.assign({}, obj_nodeId, { short_name, rowType: 3 }))
   }
   /* ----- return：tab数据 ----- */
   const tab = {

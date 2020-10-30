@@ -13,7 +13,7 @@
           <!-- 表格 -->
           <com-table :listIndex="index" :listType="item.gantt_type" :isShowAllNodes="isShowAllNodesObj[index] || false" @toggleIsShowAllNodes="toggleIsShowAllNodes"></com-table>
           <!-- 历史审核记录 -->
-          <com-record :listIndex="index"></com-record>
+          <com-record :listIndex="index" :tabName="tabName[item.gantt_type]"></com-record>
         </el-tab-pane>
       </el-tabs>
     </div>
