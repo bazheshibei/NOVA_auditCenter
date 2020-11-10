@@ -44,7 +44,7 @@ Tool.returnTopData = function (data = {}) {
 /**
  * [处理原始数据]
  */
-Tool.returnDatalist = function (itemGanttSummaryDatd) {
+Tool.returnDatalist = function (itemGanttSummaryDatd = []) {
   const that = this
   const arr = [] //     tab 数组
   const dataObj = {} // 数据对象
@@ -180,12 +180,16 @@ Tool.forEachTime = function (page_list, is_computed, changeIndexId, computed_tab
                   const { status, maxMinText } = that._isError(max, min, now, order_time, deliver_date)
                   node.time = now
                   node.final_audit_plan_enddate = now
-                  node.audit_process_record = status ? `${nodeName} 节点变更后，重新计算` : ''
                   node.max_plant_enddate = max
                   node.min_plant_enddate = min
                   node.error = status
                   node.maxMinText = maxMinText
                   if (status) {
+                    if (node.auditSplitLength === node.audit_process_record.length) {
+                      node.audit_process_record.push(`原因：${nodeName} 节点变更后，重新计算`)
+                    } else {
+                      node.audit_process_record[node.audit_process_record.length - 1] = `原因：${nodeName} 节点变更后，重新计算`
+                    }
                     errorNum++
                   }
                 } else { // 没引用此节点
@@ -300,9 +304,16 @@ Tool._returnData_3 = function (tab = {}) {
           obj.item_gantt_id = item_gantt_id
           obj.item_gantt_detail_id = item_gantt_detail_id
           /* 提交：改变过的节点 ((页面初始时间 !== 当前时间 && 有当前时间) || (现在异常原因 !== 原先异常原因 && 有现在异常原因)) */
-          if ((pageTime !== final_audit_plan_enddate && final_audit_plan_enddate) || (auditLength !== text.length && auditLength)) {
-            const auditText = audit_process_record[auditLength - 1].split('原因：')[1]
-            const nodeData = { item_node_id, final_audit_plan_enddate, audit_process_record: auditText, plan_enddate, node_code }
+          // if ((pageTime !== final_audit_plan_enddate && final_audit_plan_enddate) || (auditLength !== text.length && auditLength)) {
+          if (pageTime !== final_audit_plan_enddate && final_audit_plan_enddate) {
+            let auditText = ''
+            if (auditLength !== text.length && auditLength) {
+              const arr = audit_process_record[auditLength - 1].split('原因：')
+              if (arr.length === 2) {
+                auditText = arr[1]
+              }
+            }
+            const nodeData = { item_node_id, final_audit_plan_enddate, audit_process_record: auditText, plan_enddate, node_code, is_adjustment: 1 }
             obj.nodeData.push(nodeData)
           }
           /* 报错 */
@@ -349,9 +360,16 @@ Tool._returnData_1 = function (tab = {}) {
           }
           obj[item_gantt_detail_id][tableIndex] = Object.assign({}, obj[item_gantt_detail_id][tableIndex], { item_gantt_id, item_gantt_detail_id, gantt_audit_id: nodeAuditids[item_gantt_detail_id] })
           /* 提交：改变过的节点 ((页面初始时间 !== 当前时间 && 有当前时间) || (现在异常原因 !== 原先异常原因 && 有现在异常原因)) */
-          if ((pageTime !== final_audit_plan_enddate && final_audit_plan_enddate) || (auditLength !== text.length && auditLength)) {
-            const auditText = audit_process_record[auditLength - 1].split('原因：')[1]
-            const nodeData = { item_node_id, final_audit_plan_enddate, audit_process_record: auditText, plan_enddate, node_code }
+          // if ((pageTime !== final_audit_plan_enddate && final_audit_plan_enddate) || (auditLength !== text.length && auditLength)) {
+          if (pageTime !== final_audit_plan_enddate && final_audit_plan_enddate) {
+            let auditText = ''
+            if (auditLength !== text.length && auditLength) {
+              const arr = audit_process_record[auditLength - 1].split('原因：')
+              if (arr.length === 2) {
+                auditText = arr[1]
+              }
+            }
+            const nodeData = { item_node_id, final_audit_plan_enddate, audit_process_record: auditText, plan_enddate, node_code, is_adjustment: 1 }
             obj[item_gantt_detail_id][tableIndex].nodeData.push(nodeData)
           }
           /* 报错：审核信息 */
@@ -397,7 +415,8 @@ Tool._getData = function (tabData) {
     item.frist_plan_time = '' //          异常原因：首次提报日期
     item.is_change = 0 //                 异常原因：是否调整1是0否
     item.final_audit_plan_enddate = '' // 审批调整：审核调整最终计划完成时间
-    item.audit_process_record = '' //     审批调整：审核过程记录
+    item.audit_process_record = [] //     审批调整：审核过程记录
+    item.auditSplitLength = 0 //          审批调整：审核过程记录条数
     item.time = item.plan_enddate //      展示的时间
     item.pageTime = item.plan_enddate //  展示的时间：初始值
     item.text = '' //                     审批调整：审核过程记录：初始值
@@ -441,9 +460,10 @@ Tool._getData = function (tabData) {
     if (!obj[item.item_node_id]) {
       obj[item.item_node_id] = {}
     }
-    obj[item.item_node_id].final_audit_plan_enddate = item.final_audit_plan_enddate //         审核调整最终计划完成时间
-    obj[item.item_node_id].audit_process_record = item.audit_process_record.split('<br />') // 审核过程记录
-    obj[item.item_node_id].text = item.audit_process_record.split('<br />') //                 审核过程记录：初始值
+    obj[item.item_node_id].final_audit_plan_enddate = item.final_audit_plan_enddate //            审核调整最终计划完成时间
+    obj[item.item_node_id].audit_process_record = item.audit_process_record.split('<br />') //    审核过程记录
+    obj[item.item_node_id].auditSplitLength = item.audit_process_record.split('<br />').length // 库里的审核过程记录条数
+    obj[item.item_node_id].text = item.audit_process_record.split('<br />') //                    审核过程记录：初始值
     if (item.final_audit_plan_enddate) {
       obj[item.item_node_id].time = item.final_audit_plan_enddate
       obj[item.item_node_id].pageTime = item.final_audit_plan_enddate
@@ -528,9 +548,9 @@ Tool._returnTime = function (str = '', nodeCodeObj = {}) {
   // eslint-disable-next-line
   const timeStr = eval(numStr)
   if (isNaN(timeStr)) {
-    return '/'
+    return ''
   } else if (new Date(timeStr).getTime() < new Date('2000-01-01').getTime()) {
-    return '/'
+    return ''
   } else {
     const d = new Date(timeStr)
     const year = d.getFullYear()

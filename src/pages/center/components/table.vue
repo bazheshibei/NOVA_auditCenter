@@ -44,8 +44,6 @@
         </template>
       </el-table-column>
 
-      <!-- 工厂信息 -->
-
       <!-- 分类列 -->
       <el-table-column width="100" fixed="left">
         <template slot-scope="scope">
@@ -62,8 +60,6 @@
               <div v-if="scope.row[item.node_id]">
                 <!-- 计划完成 -->
                 <div v-if="scope.row.rowType === 1">
-                  <!-- <p>{{scope.row[item.node_id].node_id}}</p>
-                  <br> -->
                   <!-- 计划完成：异常 -->
                   <div v-if="scope.row[item.node_id].error">
                     <el-popover popper-class="comPopover" :visible-arrow="false" placement="top" trigger="hover" :content="'提报日期：' + scope.row[item.node_id].plan_enddate">
@@ -92,7 +88,10 @@
                   <div v-if="scope.row[item.node_id].audit_process_record" style="text-align: left;">
                     <p v-for="(val, key) in scope.row[item.node_id].audit_process_record" :key="'text_' + key">{{val}}</p>
                   </div>
-                  <i class="el-icon-edit-outline editIcon hover" @click="edit(scope.$index, scope.row, item)"></i>
+                  <i class="el-icon-edit-outline editIcon hover"
+                    v-if="String(scope.row[item.node_id].is_complete) !== '1'"
+                    @click="edit(scope.$index, scope.row, item)"
+                  ></i>
                 </div>
               </div>
               <span v-else>--</span>
@@ -236,10 +235,10 @@ export default {
       const { itemSummaryItemData: { order_time, deliver_date }, item_name } = this // 下单时间，客人交期,项目名称
       const { short_name } = row // 工厂名称
       const { node_id: nodeId, node_name: nodeName } = nodeData // 节点ID，节点名称
-      const { pageTime, timeType, error, time, text, audit_process_record, is_change, isComputedOther = false, is_quote, final_audit_plan_enddate: change_plan_time, verification_remark, max_plant_enddate, min_plant_enddate, plan_enddate } = row[nodeId]
+      const { pageTime, timeType, error, time, text, audit_process_record, is_change, isComputedOther = false, final_audit_plan_enddate: change_plan_time, verification_remark, max_plant_enddate, min_plant_enddate, plan_enddate } = row[nodeId]
       const node_name = short_name ? [item_name, short_name, nodeName].join(' > ') : [item_name, nodeName].join(' > ')
       const length = audit_process_record.length
-      const change_remaark = timeType === 2 ? audit_process_record[length - 1].split('原因：')[1] : ''
+      const change_remaark = timeType === 2 && audit_process_record.length ? audit_process_record[length - 1].split('原因：')[1] : ''
       /* 赋值 */
       const d_data = {
         index, //               行索引
@@ -259,7 +258,6 @@ export default {
         min_plant_enddate, //   日期最小值
         is_change, //           是否调整日期
         isComputedOther, //     是否根据当前节点的时间去计算其他节点
-        is_quote, //            是否被其他节点引用
         change_plan_time, //    调整后日期
         change_remaark //       调整/异常原因
       }
@@ -281,11 +279,11 @@ export default {
      */
     blur_dialog(name) {
       const { d_data } = this
-      const { max_plant_enddate, min_plant_enddate, order_time, deliver_date, is_quote } = d_data
+      const { max_plant_enddate, min_plant_enddate, order_time, deliver_date } = d_data
       const time = Tool._toggleTime(d_data[name])
       const { status } = Tool._isError(max_plant_enddate, min_plant_enddate, time, order_time, deliver_date)
       this.d_data.time = time
-      this.d_data.error = (is_quote === 1 && time === '/') ? true : status
+      this.d_data.error = status
       this.d_data.change_plan_time = name === 'change_plan_time' ? time : ''
     },
     /**
@@ -293,15 +291,10 @@ export default {
      */
     submit(title) {
       const { d_data, page_list, listIndex, listType } = this
-      const { index, error, nodeId, time, change_plan_time, change_remaark, is_change, is_quote, isComputedOther, nodeName, plan_enddate } = d_data
+      const { index, error, nodeId, time, change_plan_time, change_remaark, is_change, isComputedOther, nodeName, plan_enddate } = d_data
       /* 报错：报错 && 没写'调整/异常原因' */
       if (error && !change_remaark) {
         this.$message({ showClose: true, message: '请填写 调整/异常原因 后再保存', type: 'warning' })
-        return false
-      }
-      /* 报错：变更 && 被引用 && （时间 === '' || 时间 === '/'） */
-      if (is_change === 1 && is_quote === 1 && (change_plan_time === '' || change_plan_time === '/')) {
-        this.$message({ showClose: true, message: '此节点被其他节点引用，不能为空或/', type: 'warning' })
         return false
       }
       /* 报错：变更 && （没写时间 || 系统计算时间 === 当前时间） */
@@ -326,7 +319,11 @@ export default {
         node.timeType = 1
       } else if (is_change === 1) {
         if (change_remaark) {
-          node.audit_process_record.push(`【${_getTime} ${employeename}】变更日期为${change_plan_time}；原因：${change_remaark}`) // 审核过程记录
+          if (node.auditSplitLength === node.audit_process_record.length) {
+            node.audit_process_record.push(`【${_getTime} ${employeename}】变更日期为${change_plan_time}；原因：${change_remaark}`) // 审核过程记录
+          } else {
+            node.audit_process_record[node.audit_process_record.length - 1] = `【${_getTime} ${employeename}】变更日期为${change_plan_time}；原因：${change_remaark}`
+          }
         }
       }
       this.$store.commit('saveData', { name: 'is_computed', obj: isComputedOther })

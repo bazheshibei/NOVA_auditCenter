@@ -14,6 +14,7 @@ module.exports = {
     proxyTable: {
       '/api': {
         target: 'http://10.10.0.226:8080/nova', // 晓东
+        // target: 'http://47.105.94.214:8083/nova',
         secure: false, // proxy https
         changeOrigin: true,
         pathRewrite: {
