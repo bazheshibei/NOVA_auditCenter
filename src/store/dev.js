@@ -43,6 +43,7 @@ Dev.A_auditItemSummary = function (state) {
     })
   } else {
     /* 发起请求 */
+    // nex_node_type
     console.log('提交 ----- item_id：', item_id)
     console.log('提交 ----- dataList：', dataList)
   }

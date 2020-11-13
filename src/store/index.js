@@ -11,7 +11,7 @@ const store = new Vuex.Store({
   modules: {},
 
   state: {
-    nowCodeType: 'Dev', //     当前代码类型
+    nowCodeType: 'Prod', //     当前代码类型
     codeObj: { Dev, Prod }, // 代码类型 { Dev: '开发', Prod: '生产' }
     /* 页面交互 */
     showArr: ['-1'],

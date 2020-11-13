@@ -158,7 +158,7 @@ Tool.forEachTime = function (page_list, is_computed, changeIndexId, computed_tab
                 const { node_code, time, max_plant_enddate, min_plant_enddate } = node
                 const { status, maxMinText } = that._isError(max_plant_enddate, min_plant_enddate, time, order_time, deliver_date)
                 // node.audit_process_record = status ? node.audit_process_record : ''
-                node.error = status
+                node.error = time === '/' ? false : status
                 node.maxMinText = maxMinText
                 nodeCodeObj['${' + node_code + '}'] = time
                 if (status) {
@@ -182,7 +182,7 @@ Tool.forEachTime = function (page_list, is_computed, changeIndexId, computed_tab
                   node.final_audit_plan_enddate = now
                   node.max_plant_enddate = max
                   node.min_plant_enddate = min
-                  node.error = status
+                  node.error = now === '/' ? false : status
                   node.maxMinText = maxMinText
                   if (status) {
                     if (node.auditSplitLength === node.audit_process_record.length) {
@@ -518,19 +518,20 @@ Tool._getData = function (tabData) {
  * @param {[Object]} nodeCodeObj 当前项目的节点值 { ${变量}: 自身时间 }
  */
 Tool._returnTime = function (str = '', nodeCodeObj = {}) {
-  const numStr = str.replace(/\$\{[\w-_:/]+\}/g, function (name) {
+  const asd = str.replace(/\$\{[\w-_:/]+\}/g, function (name) {
     return nodeCodeObj[name] ? new Date(nodeCodeObj[name]).getTime() : 0
-  }).replace(/[0-9]+/g, function (num, index) {
+  })
+  const numStr = asd.replace(/[0-9]+/g, function (num, index) {
     if (num.length < 13) {
       let isChange = true
       let beforeStr = ''
       let afterStr = ''
       let numStr = 0
       if (index !== 0) {
-        beforeStr = str[index - 1]
+        beforeStr = asd[index - 1]
       }
-      if (index + num.length !== str.length) {
-        afterStr = str[index + num.length]
+      if (index + num.length !== asd.length) {
+        afterStr = asd[index + num.length]
       }
       if (beforeStr === '*' || beforeStr === '/' || afterStr === '*' || afterStr === '/') {
         isChange = false

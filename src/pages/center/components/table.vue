@@ -235,7 +235,7 @@ export default {
       const { itemSummaryItemData: { order_time, deliver_date }, item_name } = this // 下单时间，客人交期,项目名称
       const { short_name } = row // 工厂名称
       const { node_id: nodeId, node_name: nodeName } = nodeData // 节点ID，节点名称
-      const { pageTime, timeType, error, time, text, audit_process_record, is_change, isComputedOther = false, final_audit_plan_enddate: change_plan_time, verification_remark, max_plant_enddate, min_plant_enddate, plan_enddate } = row[nodeId]
+      const { pageTime, timeType, error, time, text, audit_process_record, is_change = 0, isComputedOther = false, final_audit_plan_enddate: change_plan_time, verification_remark, max_plant_enddate, min_plant_enddate, plan_enddate } = row[nodeId]
       const node_name = short_name ? [item_name, short_name, nodeName].join(' > ') : [item_name, nodeName].join(' > ')
       const length = audit_process_record.length
       const change_remaark = timeType === 2 && audit_process_record.length ? audit_process_record[length - 1].split('原因：')[1] : ''
