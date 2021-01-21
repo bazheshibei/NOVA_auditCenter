@@ -14,6 +14,8 @@ const store = new Vuex.Store({
     nowCodeType: 'Prod', //     当前代码类型
     codeObj: { Dev, Prod }, // 代码类型 { Dev: '开发', Prod: '生产' }
     /* 页面交互 */
+    pageType: '', //             页面类型：'4'(开发), '5'(面料), '6'(面料分色)
+    pageTitle: '', //            页面类型：'开发'('4'), '面料'('5' || '6'), '大货'(else)
     showArr: ['-1'],
     is_computed: false, //       保存后，是否根据当前节点时间，计算其他节点
     changeIndexId: '', //        修改的数据节点ID及节点名称 '2c9xadw244_节点名称'

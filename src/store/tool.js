@@ -79,23 +79,6 @@ Tool.returnDatalist = function (itemGanttSummaryDatd = []) {
     dataObj[tab.gantt_type].gantt_type = tab.gantt_type
     dataObj[tab.gantt_type].gantt_audit_id = Object.assign({}, dataObj[tab.gantt_type].gantt_audit_id, { [tab.short_name]: tab.gantt_audit_id })
     dataObj[tab.gantt_type].nodeAuditids = Object.assign({}, dataObj[tab.gantt_type].nodeAuditids, tab.nodeAuditids)
-    dataObj[tab.gantt_type].tableData.sort(function (val1, val2) { // 表格数据排序：主线第一条，不审核的在需审核上面
-      if (val1.count === 1) {
-        if (val2.count > 1) {
-          return -1
-        }
-        if (val2.count === 1) {
-          if (Object.keys(val1.nextAuditData).length < Object.keys(val2.nextAuditData).length) {
-            return -1
-          } else {
-            return 1
-          }
-        }
-        return -1
-      } else {
-        return 0
-      }
-    })
   })
   /* 合并节点 */
   const nodeObj_f = {}
@@ -111,6 +94,33 @@ Tool.returnDatalist = function (itemGanttSummaryDatd = []) {
   }
   /* 合并数据 */
   for (const x in dataObj) {
+    /* 数据排序 */
+    const arr_1 = []
+    const arr_2 = []
+    const arrObj = {}
+    dataObj[x].tableData.forEach(function (item) {
+      const { is_thread, count, short_name } = item
+      if (is_thread) { //                        主线
+        arr_1.push(item)
+      } else if (!is_thread && count === 1) { // 审核完的
+        arr_2.push(item)
+      } else { //                                未审核
+        if (!arrObj[short_name]) {
+          arrObj[short_name] = []
+        }
+        if (count) {
+          arrObj[short_name].unshift(item)
+        } else {
+          arrObj[short_name].push(item)
+        }
+      }
+    })
+    let newArr = [].concat(arr_1, arr_2)
+    for (const x in arrObj) {
+      newArr = newArr.concat(arrObj[x])
+    }
+    dataObj[x].tableData = newArr
+    /* 添加 */
     arr.push(dataObj[x])
   }
   return { arr, nodeObj: nodeObj_f }
@@ -153,12 +163,11 @@ Tool.forEachTime = function (page_list, is_computed, changeIndexId, computed_tab
           if (item.count === 3) {
             for (const x in item) {
               const node = item[x]
-              if (node instanceof Object && (node.node_id || node.node_code) && x === nodeId) { // 自身节点
+              if (node instanceof Object && (node.node_id || node.node_code) && x === nodeId && (node.node_content_type === 'time' || node.node_content_type !== 'content')) { // 自身节点
                 /* 自身：验证是否报错 */
                 const { node_code, time, max_plant_enddate, min_plant_enddate } = node
                 const { status, maxMinText } = that._isError(max_plant_enddate, min_plant_enddate, time, order_time, deliver_date)
-                // node.audit_process_record = status ? node.audit_process_record : ''
-                node.error = time === '/' ? false : status
+                node.error = (node.node_content_type === 'content') ? false : status
                 node.maxMinText = maxMinText
                 nodeCodeObj['${' + node_code + '}'] = time
                 if (status) {
@@ -168,29 +177,38 @@ Tool.forEachTime = function (page_list, is_computed, changeIndexId, computed_tab
             }
             for (const x in item) {
               const node = item[x]
-              if (node instanceof Object && (node.node_id || node.node_code) && x !== nodeId) { // 其他节点
+              if (node instanceof Object && (node.node_id || node.node_code) && x !== nodeId && (node.node_content_type === 'time' || node.node_content_type !== 'content')) { // 其他节点
                 /* 改变的：{ code } */
                 const { node_code } = tabData[nodeId]
+                /* 公式初始化：公式有可能为 null */
+                node.sys_clac_formula = node.sys_clac_formula === null ? '' : node.sys_clac_formula
+                node.max_section_value = node.max_section_value === null ? '' : node.max_section_value
+                node.min_section_value = node.min_section_value === null ? '' : node.min_section_value
                 /* 引用到此节点的其他节点：重新计算 */
-                const { sys_clac_formula, max_section_value, min_section_value } = node
-                if (sys_clac_formula.indexOf('${' + node_code + '}') > -1) { // 引用了此节点
+                const { sys_clac_formula, max_section_value, min_section_value, time } = node
+                const proving_1 = sys_clac_formula.indexOf('${' + node_code + '}') > -1 //  引用了此节点：自身公式
+                const proving_2 = max_section_value.indexOf('${' + node_code + '}') > -1 // 引用了此节点：最大值公式
+                const proving_3 = min_section_value.indexOf('${' + node_code + '}') > -1 // 引用了此节点：最小值公式
+                if (proving_1 || proving_2 || proving_3) {
                   const now = that._returnTime(sys_clac_formula, nodeCodeObj)
                   const max = that._returnTime(max_section_value, nodeCodeObj)
                   const min = that._returnTime(min_section_value, nodeCodeObj)
-                  const { status, maxMinText } = that._isError(max, min, now, order_time, deliver_date)
-                  node.time = now
-                  node.final_audit_plan_enddate = now
-                  node.max_plant_enddate = max
-                  node.min_plant_enddate = min
-                  node.error = now === '/' ? false : status
+                  const { status, maxMinText, show_1, show_2 } = that._isError(max, min, now, order_time, deliver_date)
+                  node.min_plant_enddate = show_1
+                  node.max_plant_enddate = show_2
                   node.maxMinText = maxMinText
-                  if (status) {
+                  if (proving_1 && time !== '/') { // 引用了此节点 && 当前节点不是'/'
+                    node.time = now
+                    node.final_audit_plan_enddate = now
+                    node.error = (node.node_content_type === 'content') ? false : status
                     if (node.auditSplitLength === node.audit_process_record.length) {
                       node.audit_process_record.push(`原因：${nodeName} 节点变更后，重新计算`)
                     } else {
                       node.audit_process_record[node.audit_process_record.length - 1] = `原因：${nodeName} 节点变更后，重新计算`
                     }
-                    errorNum++
+                    if (status) {
+                      errorNum++
+                    }
                   }
                 } else { // 没引用此节点
                   if (node.error) {
@@ -216,11 +234,17 @@ Tool.forEachTime = function (page_list, is_computed, changeIndexId, computed_tab
         if (item.count === 3) {
           for (const x in item) {
             const node = item[x]
-            if (node instanceof Object && (node.node_id || node.node_code)) {
-              const { max_plant_enddate, min_plant_enddate, time } = node
+            if (node instanceof Object && (node.node_id || node.node_code) && (node.node_content_type === 'time' || node.node_content_type !== 'content')) {
+              /* 公式初始化：公式有可能为 null */
+              node.sys_clac_formula = node.sys_clac_formula === null ? '' : node.sys_clac_formula
+              node.max_section_value = node.max_section_value === null ? '' : node.max_section_value
+              node.min_section_value = node.min_section_value === null ? '' : node.min_section_value
               /** 验证：计划时间是否在区间内 **/
-              const { status: errorStatus } = that._isError(max_plant_enddate, min_plant_enddate, time, order_time, deliver_date)
-              node.error = errorStatus
+              const { max_plant_enddate, min_plant_enddate, time } = node
+              const { status: errorStatus, show_1, show_2 } = that._isError(max_plant_enddate, min_plant_enddate, time, order_time, deliver_date)
+              node.min_plant_enddate = show_1
+              node.max_plant_enddate = show_2
+              node.error = (node.node_content_type === 'content') ? false : errorStatus
               if (errorStatus) {
                 errorNum++
               }
@@ -299,7 +323,7 @@ Tool._returnData_3 = function (tab = {}) {
         const node = table[x]
         if (node instanceof Object && (node.node_id || node.node_code)) {
           /* 添加数据 */
-          const { item_gantt_id, item_gantt_detail_id, item_node_id, time: final_audit_plan_enddate, audit_process_record, plan_enddate, pageTime, node_code, text } = node
+          const { item_gantt_id, item_gantt_detail_id, item_node_id, time: final_audit_plan_enddate, audit_process_record, plan_enddate, pageTime, node_code, text, node_content_type } = node
           const auditLength = audit_process_record.length
           obj.item_gantt_id = item_gantt_id
           obj.item_gantt_detail_id = item_gantt_detail_id
@@ -313,7 +337,7 @@ Tool._returnData_3 = function (tab = {}) {
                 auditText = arr[1]
               }
             }
-            const nodeData = { item_node_id, final_audit_plan_enddate, audit_process_record: auditText, plan_enddate, node_code, is_adjustment: 1 }
+            const nodeData = { item_node_id, final_audit_plan_enddate, audit_process_record: auditText, plan_enddate, node_code, is_adjustment: 1, node_content_type }
             obj.nodeData.push(nodeData)
           }
           /* 报错 */
@@ -338,6 +362,7 @@ Tool._returnData_1 = function (tab = {}) {
   let error = ''
   const { gantt_type } = tab
   const data = { gantt_type }
+  const tabName = { '1': '大货甘特表汇总', '2': '大货面料甘特表', '3': '大货工厂甘特表', '5': '面料甘特表' }
   tab.tableData.forEach(function (table, tableIndex) {
     if (table.count === 3) { // 需要调整的行
       const { nodeAuditids } = tab
@@ -350,7 +375,7 @@ Tool._returnData_1 = function (tab = {}) {
         const node = table[x]
         if (node instanceof Object && (node.node_id || node.node_code)) {
           /* 添加数据 */
-          const { item_gantt_id, item_gantt_detail_id, item_node_id, time: final_audit_plan_enddate, audit_process_record, plan_enddate, pageTime, node_code, text } = node
+          const { item_gantt_id, item_gantt_detail_id, item_node_id, time: final_audit_plan_enddate, audit_process_record, plan_enddate, pageTime, node_code, text, node_content_type } = node
           const auditLength = audit_process_record.length
           if (!obj[item_gantt_detail_id]) {
             obj[item_gantt_detail_id] = {}
@@ -358,7 +383,9 @@ Tool._returnData_1 = function (tab = {}) {
           if (!obj[item_gantt_detail_id][tableIndex]) {
             obj[item_gantt_detail_id][tableIndex] = Object.assign({}, data, data_2, { nodeData: [] })
           }
-          obj[item_gantt_detail_id][tableIndex] = Object.assign({}, obj[item_gantt_detail_id][tableIndex], { item_gantt_id, item_gantt_detail_id, gantt_audit_id: nodeAuditids[item_gantt_detail_id] })
+          // gantt_audit_id： 大货用 item_gantt_detail_id 匹配， 面料用 item_gantt_id 匹配
+          const gantt_audit_id = nodeAuditids[item_gantt_detail_id] && nodeAuditids[item_gantt_detail_id] !== null ? nodeAuditids[item_gantt_detail_id] : nodeAuditids[item_gantt_id]
+          obj[item_gantt_detail_id][tableIndex] = Object.assign({}, obj[item_gantt_detail_id][tableIndex], { item_gantt_id, item_gantt_detail_id, gantt_audit_id })
           /* 提交：改变过的节点 ((页面初始时间 !== 当前时间 && 有当前时间) || (现在异常原因 !== 原先异常原因 && 有现在异常原因)) */
           // if ((pageTime !== final_audit_plan_enddate && final_audit_plan_enddate) || (auditLength !== text.length && auditLength)) {
           if (pageTime !== final_audit_plan_enddate && final_audit_plan_enddate) {
@@ -369,14 +396,14 @@ Tool._returnData_1 = function (tab = {}) {
                 auditText = arr[1]
               }
             }
-            const nodeData = { item_node_id, final_audit_plan_enddate, audit_process_record: auditText, plan_enddate, node_code, is_adjustment: 1 }
+            const nodeData = { item_node_id, final_audit_plan_enddate, audit_process_record: auditText, plan_enddate, node_code, is_adjustment: 1, node_content_type }
             obj[item_gantt_detail_id][tableIndex].nodeData.push(nodeData)
           }
           /* 报错：审核信息 */
           if (type === 2 && !remark) {
-            error = '<p>大货甘特表汇总：驳回状态下，驳回意见必填</p>'
+            error = `<p>${tabName[gantt_type]}：驳回状态下，驳回意见必填</p>`
           } else if (type === '' || (type === 1 && people === '' && auditNodeMap_node_id)) {
-            error = '<p>大货甘特表汇总：请完善审核信息后再提交</p>'
+            error = `<p>${tabName[gantt_type]}：请完善审核信息后再提交</p>`
           }
         }
       }
@@ -469,9 +496,9 @@ Tool._getData = function (tabData) {
       obj[item.item_node_id].pageTime = item.final_audit_plan_enddate
     }
   })
-  /* ----- 合并：大货获取gantt_audit_id ----- */
+  /* ----- 合并：大货/面料 获取 gantt_audit_id ----- */
   const { nodeAuditids = {} } = tabData
-  /* ----- 合并：工厂获取gantt_audit_id ----- */
+  /* ----- 合并：工厂获取 gantt_audit_id ----- */
   const { gantt_audit_id } = tabData
   /* ----- 合并：工厂信息 ----- */
   const { short_name = '' } = tabData
@@ -519,7 +546,7 @@ Tool._getData = function (tabData) {
  */
 Tool._returnTime = function (str = '', nodeCodeObj = {}) {
   const asd = str.replace(/\$\{[\w-_:/]+\}/g, function (name) {
-    return nodeCodeObj[name] ? new Date(nodeCodeObj[name]).getTime() : 0
+    return nodeCodeObj[name] ? new Date(nodeCodeObj[name]).getTime() : 'xxx'
   })
   const numStr = asd.replace(/[0-9]+/g, function (num, index) {
     if (num.length < 13) {
@@ -546,18 +573,22 @@ Tool._returnTime = function (str = '', nodeCodeObj = {}) {
     }
   })
   /* 毫秒数 转 时间 */
-  // eslint-disable-next-line
-  const timeStr = eval(numStr)
-  if (isNaN(timeStr)) {
+  try {
+    // eslint-disable-next-line
+    const timeStr = eval(numStr)
+    if (isNaN(timeStr)) {
+      return ''
+    } else if (new Date(timeStr).getTime() < new Date('2000-01-01').getTime()) {
+      return ''
+    } else {
+      const d = new Date(timeStr)
+      const year = d.getFullYear()
+      const month = d.getMonth() + 1 < 10 ? '0' + (d.getMonth() + 1) : d.getMonth() + 1
+      const day = d.getDate() < 10 ? '0' + d.getDate() : d.getDate()
+      return `${year}-${month}-${day}`
+    }
+  } catch (err) {
     return ''
-  } else if (new Date(timeStr).getTime() < new Date('2000-01-01').getTime()) {
-    return ''
-  } else {
-    const d = new Date(timeStr)
-    const year = d.getFullYear()
-    const month = d.getMonth() + 1 < 10 ? '0' + (d.getMonth() + 1) : d.getMonth() + 1
-    const day = d.getDate() < 10 ? '0' + d.getDate() : d.getDate()
-    return `${year}-${month}-${day}`
   }
 }
 /**
@@ -590,7 +621,7 @@ Tool._toggleTime = function (time) {
     /* 处理：日 */
     let year_2 = month < 12 ? year : year + 1
     let month_2 = month < 12 ? month + 1 : month + 1 - 12
-    let day = (isNaN(parseInt(three)) || three === '0') ? 1 : parseInt(three) // 日 {[Int]}
+    let day = (isNaN(parseInt(three)) || Number(three) === 0) ? 1 : parseInt(three) // 日 {[Int]}
     for (let i = 0; ; i++) {
       const maxDay = new Date(new Date(`${year_2}-${month_2}`).getTime() - 1000 * 60 * 60 * 24).getDate()
       if (day > maxDay) {
@@ -624,21 +655,29 @@ Tool._toggleTime = function (time) {
  * @param {[String]} deliver_date 客人交期
  */
 Tool._isError = function (maxVal = '', minVal = '', plantVal = '', order_time = '', deliver_date = '') {
-  const max = isNaN(new Date(maxVal).getTime()) ? 0 : new Date(maxVal).getTime() //       最大值
-  const min = isNaN(new Date(minVal).getTime()) ? 0 : new Date(minVal).getTime() //       最小值
-  const plant = isNaN(new Date(plantVal).getTime()) ? 0 : new Date(plantVal).getTime() // 计划时间
-  const order = new Date(order_time).getTime() //                                         下单日期
-  const deliver = new Date(deliver_date).getTime() //                                     客人交期
-  const countMax = max || deliver
-  const countMin = min || order
+  const max = isNaN(new Date(maxVal).getTime()) ? 0 : new Date(maxVal).getTime() //                 最大值
+  const min = isNaN(new Date(minVal).getTime()) ? 0 : new Date(minVal).getTime() //                 最小值
+  const plant = isNaN(new Date(plantVal).getTime()) ? 0 : new Date(plantVal).getTime() //           计划时间
+  const order = isNaN(new Date(order_time).getTime()) ? 0 : new Date(order_time).getTime() //       下单日期
+  const deliver = isNaN(new Date(deliver_date).getTime()) ? 0 : new Date(deliver_date).getTime() // 客人交期
+  const countMax = deliver && deliver <= max ? deliver : max
+  const countMin = order && min <= order ? order : min
   const time_1 = this._returnYearMonthDay(countMin)
   const time_2 = this._returnYearMonthDay(countMax)
-  const maxMinText = `最早：${time_1 === '1970-01-01' ? '未知' : time_1}，最晚：${time_2 === '1970-01-01' ? '未知' : time_2}` // 提示文字
+  const alert_1 = time_1 === '1970-01-01' ? '未知' : time_1 // 提示文字：最小值
+  const alert_2 = time_2 === '1970-01-01' ? '未知' : time_2 // 提示文字：最大值
+  const show_1 = time_1 === '1970-01-01' ? '' : time_1 //     展示时间：最小值
+  const show_2 = time_2 === '1970-01-01' ? '' : time_2 //     展示时间：最大值
+  const maxMinText = `最早：${alert_1}，最晚：${alert_2}`
   /* 返回 */
-  if (countMin && countMax && (countMin <= plant && plant <= countMax)) {
-    return { status: false, maxMinText }
+  if (countMin && countMax && (countMin <= plant && plant <= countMax)) { // 在区间内
+    return { status: false, maxMinText, show_1, show_2 }
+  } else if (countMin && !countMax && countMin <= plant) { //                只有最小值 && 大于最小值
+    return { status: false, maxMinText, show_1, show_2 }
+  } else if (!countMin && countMax && plant <= countMax) { //                只有最大值 && 小于最大值
+    return { status: false, maxMinText, show_1, show_2 }
   } else {
-    return { status: true, maxMinText }
+    return { status: true, maxMinText, show_1, show_2 }
   }
 }
 /**

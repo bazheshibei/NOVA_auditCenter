@@ -13,7 +13,20 @@ const Prod = {}
  * @localStorage {[gantt_audit_id]} '2c9f10b674b9cd400174bf39a37402a8'
  */
 Prod.A_getItemGanttData = function (state) {
-  const { gantt_audit_id = '2c9f10b675afaf560175b03912c000e1' } = JSON.parse(localStorage.getItem('NOVA_itemGanttAuditBatch') || '{}')
+  /* 记录页面信息 */
+  const { gantt_audit_id = '2c9f10b67628364f01762d0bf8d407c3', gantt_type = '1' } = JSON.parse(localStorage.getItem('NOVA_itemGanttAuditBatch') || '{}')
+  const ganttType = String(gantt_type)
+  let pageTitle = ''
+  if (ganttType === '4') {
+    pageTitle = '开发'
+  } else if (ganttType === '5' || ganttType === '6') {
+    pageTitle = '面料'
+  } else {
+    pageTitle = '大货'
+  }
+  state.pageType = ganttType
+  state.pageTitle = pageTitle
+  /* 发起请求 */
   const name = '甘特表提报审核页面'
   const obj = { gantt_audit_id }
   const suc = function (res) {
@@ -60,12 +73,11 @@ Prod.A_auditItemSummary = function (state) {
       if (String(status) === '0') {
         MessageBox({ title: '数据异常', message: msg, type: 'warning', closeOnClickModal: false, closeOnPressEscape: false })
       } else {
-        const loading = Loading.service({ text: '提交成功', spinner: 'el-icon-circle-check' })
+        Loading.service({ text: '提交成功', spinner: 'el-icon-circle-check' })
         setTimeout(() => {
-          loading.close()
           // eslint-disable-next-line
           dg.close()
-        }, 1000)
+        }, 2000)
       }
     }
     Api({ name, obj, suc, loading: '提交审核中...' })

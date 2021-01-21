@@ -12,8 +12,16 @@
         </div>
       </div>
     </div>
-    <div class="formLine">
-      <!-- 其他信息 -->
+    <div class="formLine" v-if="pageTitle === '面料'">
+      <!-- 其他信息：面料 -->
+      <div class="formLabel">其他信息：</div>
+      <div class="formTextBox">
+        <div class="formText">面料下达时间：{{itemSummaryItemData.order_time}}</div>
+        <div class="formText">创建人：{{itemSummaryItemData.creator}}({{itemSummaryItemData.create_time}})</div>
+      </div>
+    </div>
+    <div class="formLine" v-else-if="pageTitle === '大货'">
+      <!-- 其他信息 ：大货-->
       <div class="formLabel">其他信息：</div>
       <div class="formTextBox">
         <div class="formText">订单类型：{{itemSummaryItemData.order_type}}</div>
@@ -42,7 +50,7 @@ export default {
     return {}
   },
   computed: {
-    ...mapState(['itemSummaryItemData'])
+    ...mapState(['itemSummaryItemData', 'pageTitle'])
   }
 }
 </script>

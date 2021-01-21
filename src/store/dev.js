@@ -15,7 +15,9 @@ const Dev = {}
  */
 Dev.A_getItemGanttData = function (state) {
   const data = JSON.parse(localStorage.getItem('审核中心：审核列表'))
-  // console.log('审核中心：审核列表 ----- ', data)
+  console.log('审核中心：审核列表 ----- ', data)
+  /* 页面类型 */
+  state.pageType = '5'
   /* ----- 处理数据 ----- */
   const { itemSummaryItemData, itemGanttSummaryDatd, employeename, item_name, item_id } = data
   /* 顶部数据 */
